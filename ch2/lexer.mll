@@ -1,4 +1,4 @@
-	{
+{
 open Lexing
 
 exception End_of_file
