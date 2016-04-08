@@ -74,8 +74,7 @@ rule token = parse
      | ":="			{ ASSIGN }
      | identifier as id		{ ID id }
      | integer as i		{ INT (int_of_string i) }
-     | '"'			{ let string_start = lexeme_start lexbuf in
-				  let contents = string (Buffer.create 16) lexbuf in
+     | '"'			{ let contents = string (Buffer.create 16) lexbuf in
 				  STRING contents }
      | "/*"			{ comment 0 lexbuf }
      | [' ' '\n' '\t' '\r']	{ token lexbuf }
