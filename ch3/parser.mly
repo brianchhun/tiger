@@ -115,8 +115,10 @@ args1		: exp					{}
 recfields	: /* empty */				{}
 		| recfields1				{}
 		;
-recfields1	: ID EQ exp				{}
-		| recfields1 COMMA ID EQ exp		{}
+recfields1	: recfield				{}
+		| recfields1 COMMA recfield		{}
+		;
+recfield	: ID EQ exp				{}
 		;
 		
 decs		: /* empty */				{}

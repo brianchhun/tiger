@@ -49,7 +49,7 @@ type var = SimpleVar of symbol * pos
 	    GeOp
 						  
  and fundec = {
-     fundec__name: symbol;
+     fundec_name: symbol;
      params: field list;
      result: (symbol * pos) option;
      body: exp;
