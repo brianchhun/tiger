@@ -1,7 +1,6 @@
 type access
-type ty
-type enventry = VarEntry of ty
-	      | FunEntry of ty list * ty
+type enventry = VarEntry of Types.ty
+	      | FunEntry of Types.ty list * Types.ty
 
-val base_tenv : ty Symbol.table
+val base_tenv : Types.ty Symbol.table
 val base_venv : enventry Symbol.table
