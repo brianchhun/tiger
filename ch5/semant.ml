@@ -20,14 +20,35 @@ let check_unit {exp; ty} pos =
   {exp; ty=Types.UNIT}
 
 let rec trans_var venv tenv = function
-  | A.SimpleVar (s, pos) ->
-     {exp=(); ty=Types.UNIT}
-  | A.FieldVar (v, s, pos) ->
-     {exp=(); ty=Types.UNIT}
-  | A.SubscriptVar (v, e, pos) ->
-     {exp=(); ty=Types.UNIT}
+  | A.SimpleVar (id, pos) ->
+     (match S.look id venv with
+      | Env.VarEntry ty ->
+	  {exp=(); ty=ty}
+      | _ ->
+	 error ("undefined variable " ^ S.name id) pos;
+	 {exp=(); ty=Types.INT}
+     )
+  | A.FieldVar (v, id, pos) ->
+     let {ty; _} = trans_var venv tenv v in
+     (match ty with
+      | Types.RECORD (fields, unique) ->
+	 let (fieldname, fieldty) = List.find (fun (fieldname, fieldty) ->
+					fieldname = id) fields in
+	 {exp=(); ty=fieldty}
+      | _ ->
+	 error "expected record" pos;
+	 {exp=(); ty=Types.INT})
+  | A.SubscriptVar (v, exp, pos) ->
+     let {ty; _} = trans_var venv tenv v in
+     (match ty with
+      | Types.ARRAY (ty, unique) ->
+	 ignore (check_int (trans_exp venv tenv exp) pos);
+	 {exp=(); ty=ty}
+      | _ ->
+	 error "expected array" pos;
+	 {exp=(); ty=Types.INT})
 
-let rec trans_exp venv tenv exp =
+and trans_exp venv tenv exp =
   let rec trexp = function
     | A.VarExp v ->
        trans_var venv tenv v
@@ -118,8 +139,9 @@ let rec trans_exp venv tenv exp =
 	   error "expected array" pos;
 	   {exp=(); ty=Types.ARRAY (Types.INT, ref ())}
        )
+
   in trexp exp
-	
+
 and trans_dec venv tenv = function
   | A.FunctionDec fundecs -> {venv; tenv}
   | A.VarDec vardec -> {venv; tenv}
