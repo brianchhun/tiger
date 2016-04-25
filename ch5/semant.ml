@@ -143,31 +143,30 @@ and trans_exp venv tenv exp =
   in trexp exp
 
 and trans_dec venv tenv = function
-  | A.VarDec {A.vardec_name; typ=None; init; _} ->
-     let {exp; ty} = trans_exp venv tenv init in
+  | A.VarDec {A.vardec_name; vardec_ty=None; vardec_init; _} ->
+     let {exp; ty} = trans_exp venv tenv vardec_init in
      (* TODO: constrain NIL to RECORD *)
      {venv=S.enter vardec_name (Env.VarEntry ty) venv; tenv}
-  | A.VarDec {A.vardec_name; typ=Some(tyname,typos); init; _} ->
+  | A.VarDec {A.vardec_name; vardec_ty=Some(tyname, typos); vardec_init; _} ->
      let ty = S.look tyname tenv in
-     let {exp; ty=expty} = trans_exp venv tenv init in
+     let {exp; ty=expty} = trans_exp venv tenv vardec_init in
      (* TODO: constrain NIL to RECORD *)
      if ty <> expty
      then error "type mismatch" typos;
      {venv=S.enter vardec_name (Env.VarEntry ty) venv; tenv}
-  | A.TypeDec typedecs ->
-     let trtydec {venv; tenv} {A.typedec_name; ty; typedec_pos} =
-       {venv; tenv=S.enter typedec_name (trans_ty tenv ty) tenv} in
-     List.fold_left trtydec {venv;tenv} typedecs
-  | A.FunctionDec [{A.fundec_name; params; result=Some(rt,pos); body; fundec_pos}] ->
+  | A.TypeDec tydecs ->
+     let trtydec {venv; tenv} {A.tydec_name; tydec_ty; tydec_pos} =
+       {venv; tenv=S.enter tydec_name (trans_ty tenv tydec_ty) tenv} in
+     List.fold_left trtydec {venv;tenv} tydecs
+  | A.FunctionDec [{A.fundec_name; fundec_params; fundec_result=Some(rt,pos); fundec_body; fundec_pos}] ->
      let resultty = S.look rt tenv in
-     let trparam {A.name; escape; typ; pos} = (name, S.look typ tenv) in
-     let params' = List.map trparam params in
+     let trparam {A.name; escape; ty; pos} = (name, S.look ty tenv) in
+     let params' = List.map trparam fundec_params in
      let venv' = S.enter fundec_name (Env.FunEntry ((List.map snd params'), resultty)) venv in
      let enterparam venv (name, ty) = S.enter name (Env.VarEntry ty) venv in
      let venv'' = List.fold_left enterparam venv' params' in
-     (* Check body ty equals declared result type *)
-     let {ty=bodyty; _} = trans_exp venv'' tenv body in
-     if bodyty<>resultty
+     let {ty=bodyty; _} = trans_exp venv'' tenv fundec_body in
+     if bodyty <> resultty
      then error "type mismatch" pos;
      {venv=venv'; tenv}
 
@@ -175,11 +174,10 @@ and trans_ty tenv = function
   | A.NameTy (s, p) ->
      S.look s tenv
   | A.RecordTy fields ->
-     let trfield {A.name; escape; typ; pos} = (name, S.look typ tenv) in
+     let trfield {A.name; escape; ty; pos} = (name, S.look ty tenv) in
      Types.RECORD ((List.map trfield fields), ref ())
   | A.ArrayTy (s, p) ->
      Types.ARRAY ((S.look s tenv), ref ())
-					       
 
 let trans_prog exp =
   ignore (trans_exp Env.base_venv Env.base_tenv exp)
