@@ -9,44 +9,41 @@ type decenv = {venv: venv; tenv: tenv}
 let error s pos =
   prerr_endline ((string_of_int pos) ^ ":" ^ s)
 
-let check_int {exp; ty} pos =
-  if ty <> Types.INT then
-    error ("expected int " ^ string_of_int pos) pos;
-  {exp; ty=Types.INT}
-
-let check_unit {exp; ty} pos =
-  if ty <> Types.UNIT then
-    error ("expected unit at " ^ string_of_int pos) pos;
-  {exp; ty=Types.UNIT}
+let check_expty ty {exp; ty=ty'} pos =
+	if ty <> ty' then
+		Printf.eprintf "%d: expected %s, got %s\n" pos (Types.string_of_ty ty) (Types.string_of_ty ty')
+									 
+let check_int = check_expty Types.INT
+let check_unit = check_expty Types.UNIT
 
 let rec trans_var venv tenv = function
   | A.SimpleVar (id, pos) ->
      (match S.look id venv with
       | Env.VarEntry ty ->
-	  {exp=(); ty=ty}
+				 {exp=(); ty=ty}
       | _ ->
-	 error ("undefined variable " ^ S.name id) pos;
-	 {exp=(); ty=Types.INT}
+				 Printf.eprintf "%d: undefined variable %s\n" pos (S.name id);
+				 {exp=(); ty=Types.INT}
      )
   | A.FieldVar (v, id, pos) ->
      let {ty; _} = trans_var venv tenv v in
      (match ty with
       | Types.RECORD (fields, unique) ->
-	 let (fieldname, fieldty) = List.find (fun (fieldname, fieldty) ->
-					fieldname = id) fields in
-	 {exp=(); ty=fieldty}
+				 let (fieldname, fieldty) = List.find (fun (fieldname, fieldty) ->
+																				fieldname = id) fields in
+				 {exp=(); ty=fieldty}
       | _ ->
-	 error "expected record" pos;
-	 {exp=(); ty=Types.INT})
+				 error "expected record" pos;
+				 {exp=(); ty=Types.INT})
   | A.SubscriptVar (v, exp, pos) ->
      let {ty; _} = trans_var venv tenv v in
      (match ty with
       | Types.ARRAY (ty, unique) ->
-	 ignore (check_int (trans_exp venv tenv exp) pos);
-	 {exp=(); ty=ty}
+				 check_int (trans_exp venv tenv exp) pos;
+				 {exp=(); ty=ty}
       | _ ->
-	 error "expected array" pos;
-	 {exp=(); ty=Types.INT})
+				 Printf.eprintf "%d: expected array, got %s\n" pos (Types.string_of_ty ty);
+				 {exp=(); ty=Types.INT})
 
 and trans_exp venv tenv exp =
   let rec trexp = function
@@ -60,86 +57,78 @@ and trans_exp venv tenv exp =
        {exp=(); ty=Types.STRING}
     | A.CallExp (func, args, pos) ->
        (match S.look func venv with
-	| Env.FunEntry (formaltys, result) ->
-	   let chktys formal arg =
-	     if formal <> arg
-	     then error "type mismatch" pos in
-	   let argty exp = (trexp exp).ty in
-	   List.iter2 chktys formaltys (List.map argty args);
-	   {exp=(); ty=result}
-	| _ ->
-	   error "expected function" pos;
-	   {exp=(); ty=Types.INT})
+				| Env.FunEntry (formaltys, result) ->
+					 let check_arg ty expty = check_expty ty expty pos in
+					 List.iter2 check_arg formaltys (List.map trexp args);
+					 {exp=(); ty=result}
+				| Env.VarEntry ty ->
+					 Printf.eprintf "%d: expected function, got %s\n" pos (Types.string_of_ty ty);
+					 {exp=(); ty=Types.INT})
     | A.OpExp (l, op, r, pos) ->
-       ignore (check_int (trexp l) pos);
-       ignore (check_int (trexp r) pos);
+       check_int (trexp l) pos;
+       check_int (trexp r) pos;
        {exp=(); ty=Types.INT}
     | A.RecordExp (fields, tyid, pos) ->
        (match S.look tyid tenv with
-	| Types.RECORD (fieldtys, unique) as ty ->
-	   List.iter2 (fun (s1,exp,pos) (s,ty)->
-	       if s1 <> s
-	       then error ("expected field " ^ S.name s) pos;
-	       let {ty=ty1; _} = trexp exp in
-	       if ty1 <> ty
-	       then error "type mismatch" pos) fields fieldtys;
-	   {exp=(); ty=ty}
-	| _ ->
-	   error "expected record" pos;
-	   {exp=(); ty=Types.RECORD([], ref ())}
+				| Types.RECORD (fieldtys, unique) as ty ->
+					 List.iter2 (fun (s1,exp,pos) (s,ty)->
+							 if s1 <> s
+							 then error ("expected field " ^ S.name s) pos;
+							 let {ty=ty1; _} = trexp exp in
+							 if ty1 <> ty
+							 then error "type mismatch" pos) fields fieldtys;
+					 {exp=(); ty=ty}
+				| _ ->
+					 error "expected record" pos;
+					 {exp=(); ty=Types.RECORD([], ref ())}
        )
     | A.SeqExp (exps) ->
        List.fold_left (fun _ (exp, pos) ->
-	   trexp exp) {exp=(); ty=Types.UNIT} exps
+					 trexp exp) {exp=(); ty=Types.UNIT} exps
     | A.AssignExp (v, e, pos) ->
        ignore (trans_var venv tenv v);
        ignore (trexp e);
        {exp=(); ty=Types.UNIT}
     | A.IfExp (test, then', None, pos) ->
-       ignore (check_int (trexp test) pos);
+       check_int (trexp test) pos;
        trexp then'
     | A.IfExp (test, then', Some else', pos) ->
-       ignore (check_int (trexp test) pos);
+       check_int (trexp test) pos;
        let {ty=thenty; _} = trexp then' in
-       let {ty=elsety; _} = trexp else' in
-       if thenty <> elsety
-       then error "type mismatch" pos;
+       let else_expty = trexp else' in
+			 check_expty thenty else_expty pos;
        {exp=(); ty=thenty}
     | A.WhileExp (test, body, pos) ->
-       ignore (check_int (trexp test) pos);
-       let {ty=bodyty; _} = trexp body in
-       if bodyty <> Types.UNIT
-       then error "expected unit" pos;
+       check_int (trexp test) pos;
+       let body_expty = trexp body in
+			 check_expty Types.UNIT body_expty pos;
        {exp=(); ty=Types.UNIT}
     | A.ForExp (var, escape, lo, hi, body, pos) ->
-       ignore (check_int (trexp lo) pos);
-       ignore (check_int (trexp hi) pos);
+       check_int (trexp lo) pos;
+       check_int (trexp hi) pos;
        let venv' = S.enter var (Env.VarEntry Types.INT) venv in
-       let {ty=bodyty; _} = trans_exp venv' tenv body in
-       if bodyty <> Types.UNIT
-       then error "expected unit" pos;
+			 let body_expty = trexp body in
+			 check_expty Types.UNIT body_expty pos;
        {exp=(); ty=Types.UNIT}
     | A.BreakExp p ->
        {exp=(); ty=Types.UNIT}
     | A.LetExp (decs, body, p) ->
        let {venv=venv'; tenv=tenv'} =
-	 List.fold_left
-	   (fun {venv; tenv} dec -> trans_dec venv tenv dec)
-	   {venv; tenv} decs in
+				 List.fold_left
+					 (fun {venv; tenv} dec -> trans_dec venv tenv dec)
+					 {venv; tenv} decs in
        trans_exp venv' tenv' body
     | A.ArrayExp (tyid, size, init, pos) ->
        (match S.look tyid tenv with
-	| Types.ARRAY (ty, unique) as aty ->
-	   ignore (check_int (trexp size) pos);
-	   let {ty=inity; _} = trexp init in
-	   if inity <> ty
-	   then error "type mismatch" pos;
-	   {exp=(); ty=aty}
-	| _ ->
-	   error "expected array" pos;
-	   {exp=(); ty=Types.ARRAY (Types.INT, ref ())}
+				| Types.ARRAY (ty, unique) as aty ->
+					 check_int (trexp size) pos;
+					 let init_expty = trexp init in
+					 check_expty ty init_expty pos;
+					 {exp=(); ty=aty}
+				| ty ->
+					 Printf.eprintf "%d: expected array, got %s\n" pos (Types.string_of_ty ty);
+					 {exp=(); ty=Types.ARRAY (Types.INT, ref ())}
        )
-
   in trexp exp
 
 and trans_dec venv tenv = function
@@ -152,7 +141,7 @@ and trans_dec venv tenv = function
      let {exp; ty=expty} = trans_exp venv tenv vardec_init in
      (* TODO: constrain NIL to RECORD *)
      if ty <> expty
-     then error "type mismatch" typos;
+		 then Printf.eprintf "%d: expected %s, got %s\n" typos (Types.string_of_ty ty) (Types.string_of_ty expty);
      {venv=S.enter vardec_name (Env.VarEntry ty) venv; tenv}
   | A.TypeDec tydecs ->
      let trtydec {venv; tenv} {A.tydec_name; tydec_ty; tydec_pos} =
@@ -167,7 +156,7 @@ and trans_dec venv tenv = function
      let venv'' = List.fold_left enterparam venv' params' in
      let {ty=bodyty; _} = trans_exp venv'' tenv fundec_body in
      if bodyty <> resultty
-     then error "type mismatch" pos;
+		 then Printf.eprintf "%d: expected %s, got %s\n" pos (Types.string_of_ty resultty) (Types.string_of_ty bodyty);
      {venv=venv'; tenv}
 
 and trans_ty tenv = function
