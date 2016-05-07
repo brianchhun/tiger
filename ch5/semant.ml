@@ -6,9 +6,6 @@ type tenv = Types.ty S.table
 type expty = {exp: Translate.exp; ty: Types.ty}
 type decenv = {venv: venv; tenv: tenv}
 
-let error s pos =
-  prerr_endline ((string_of_int pos) ^ ":" ^ s)
-
 let check_expty ty {exp; ty=ty'} pos =
 	if ty <> ty' then
 		Printf.eprintf "%d: expected %s, got %s\n" pos (Types.string_of_ty ty) (Types.string_of_ty ty')
@@ -32,8 +29,8 @@ let rec trans_var venv tenv = function
 				 let (fieldname, fieldty) = List.find (fun (fieldname, fieldty) ->
 																				fieldname = id) fields in
 				 {exp=(); ty=fieldty}
-      | _ ->
-				 error "expected record" pos;
+      | ty ->
+				 Printf.eprintf "%d: expected record, got %s\n" pos (Types.string_of_ty ty);
 				 {exp=(); ty=Types.INT})
   | A.SubscriptVar (v, exp, pos) ->
      let {ty; _} = trans_var venv tenv v in
@@ -73,13 +70,11 @@ and trans_exp venv tenv exp =
 				| Types.RECORD (fieldtys, unique) as ty ->
 					 List.iter2 (fun (s1,exp,pos) (s,ty)->
 							 if s1 <> s
-							 then error ("expected field " ^ S.name s) pos;
-							 let {ty=ty1; _} = trexp exp in
-							 if ty1 <> ty
-							 then error "type mismatch" pos) fields fieldtys;
+							 then Printf.eprintf "%d: expected field %s, got %s\n" pos (S.name s) (S.name s1);
+							 check_expty ty (trexp exp) pos) fields fieldtys;
 					 {exp=(); ty=ty}
-				| _ ->
-					 error "expected record" pos;
+				| ty ->
+					 Printf.eprintf "%d: expected record, got %s\n" pos (Types.string_of_ty ty);
 					 {exp=(); ty=Types.RECORD([], ref ())}
        )
     | A.SeqExp (exps) ->
