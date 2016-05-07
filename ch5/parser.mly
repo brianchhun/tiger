@@ -120,8 +120,8 @@ exp:
     { A.ForExp (S.symbol $2, ref true, $4, $6, $8, pos()) }
   | BREAK
     { A.BreakExp (pos()) }
-  | LET decs IN exp END
-    { A.LetExp ($2, $4, pos()) }
+  | LET decs IN expseq END
+    { A.LetExp ($2, A.SeqExp $4, pos()) }
   ;
 
 lval:

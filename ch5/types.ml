@@ -15,5 +15,5 @@ let rec string_of_ty = function
 	| INT -> "int"
 	| STRING -> "string"
 	| ARRAY (ty, unique) -> string_of_ty ty ^ " array"
-	| NAME (s, ty) -> "name" (* TODO *)
+	| NAME (s, ty) -> Symbol.name s
 	| UNIT -> "unit"

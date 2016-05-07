@@ -1,3 +1,10 @@
+(*
+   TODO:
+   break only appears witin a while or for loop
+   constrain NIL to RECORD
+   recursive types have to psas through array or record
+*)
+
 module A = Absyn
 module S = Symbol
 
@@ -6,13 +13,25 @@ type tenv = Types.ty S.table
 type expty = {exp: Translate.exp; ty: Types.ty}
 type decenv = {venv: venv; tenv: tenv}
 
+let actual_ty = function
+	| Types.NAME (s, ty) ->
+		 (match !ty with
+			| None -> raise (Failure (S.name s ^ " name type without actual type"))
+			| Some actual -> actual)
+	| ty -> ty
+
 let check_expty ty {exp; ty=ty'} pos =
-	if ty <> ty' then
-		Printf.eprintf "%d: expected %s, got %s\n" pos (Types.string_of_ty ty) (Types.string_of_ty ty')
-									 
+	let actual = actual_ty ty in
+	(match actual, ty' with
+	 | Types.RECORD _ , Types.NIL -> ()
+	 | _ when actual <> ty' ->
+			Printf.eprintf "%d: expected %s, got %s\n" pos (Types.string_of_ty ty) (Types.string_of_ty ty')
+	 | _ -> ()
+	)
+
 let check_int = check_expty Types.INT
 let check_unit = check_expty Types.UNIT
-
+												 
 let rec trans_var venv tenv = function
   | A.SimpleVar (id, pos) ->
      (match S.look id venv with
@@ -24,7 +43,7 @@ let rec trans_var venv tenv = function
      )
   | A.FieldVar (v, id, pos) ->
      let {ty; _} = trans_var venv tenv v in
-     (match ty with
+     (match actual_ty ty with
       | Types.RECORD (fields, unique) ->
 				 let (fieldname, fieldty) = List.find (fun (fieldname, fieldty) ->
 																				fieldname = id) fields in
@@ -45,7 +64,8 @@ let rec trans_var venv tenv = function
 and trans_exp venv tenv exp =
   let rec trexp = function
     | A.VarExp v ->
-       trans_var venv tenv v
+			 let {exp; ty} = trans_var venv tenv v in
+			 {exp; ty=actual_ty ty}
     | A.NilExp ->
        {exp=(); ty=Types.NIL}
     | A.IntExp i ->
@@ -61,14 +81,34 @@ and trans_exp venv tenv exp =
 				| Env.VarEntry ty ->
 					 Printf.eprintf "%d: expected function, got %s\n" pos (Types.string_of_ty ty);
 					 {exp=(); ty=Types.INT})
+		| A.OpExp (l, A.EqOp, r, pos) ->
+			 let {ty=ty1; _} as expty1 = trexp l in
+			 let {ty=ty2; _} as expty2 = trexp r in
+			 (match ty1, ty2 with
+				| Types.RECORD _, Types.RECORD _ -> ()
+				| Types.ARRAY _, Types.ARRAY _-> ()
+				| Types.INT, Types.INT -> ()
+				| _ -> Printf.eprintf "%d: cannot compare %s with %s\n"
+															pos (Types.string_of_ty ty1) (Types.string_of_ty ty2));
+       {exp=(); ty=Types.INT}
+		| A.OpExp (l, A.NeqOp, r, pos) ->
+			 let {ty=ty1; _} as expty1 = trexp l in
+			 let {ty=ty2; _} as expty2 = trexp r in
+			 (match ty1, ty2 with
+				| Types.RECORD _, Types.RECORD _ -> ()
+				| Types.ARRAY _, Types.ARRAY _-> ()
+				| Types.INT, Types.INT -> ()
+				| _ -> Printf.eprintf "%d: cannot compare %s with %s\n"
+															pos (Types.string_of_ty ty1) (Types.string_of_ty ty2));
+       {exp=(); ty=Types.INT}
     | A.OpExp (l, op, r, pos) ->
        check_int (trexp l) pos;
        check_int (trexp r) pos;
        {exp=(); ty=Types.INT}
     | A.RecordExp (fields, tyid, pos) ->
-       (match S.look tyid tenv with
+       (match actual_ty (S.look tyid tenv) with
 				| Types.RECORD (fieldtys, unique) as ty ->
-					 List.iter2 (fun (s1,exp,pos) (s,ty)->
+					 List.iter2 (fun (s1,exp,pos) (s,ty) ->
 							 if s1 <> s
 							 then Printf.eprintf "%d: expected field %s, got %s\n" pos (S.name s) (S.name s1);
 							 check_expty ty (trexp exp) pos) fields fieldtys;
@@ -114,7 +154,7 @@ and trans_exp venv tenv exp =
 					 {venv; tenv} decs in
        trans_exp venv' tenv' body
     | A.ArrayExp (tyid, size, init, pos) ->
-       (match S.look tyid tenv with
+       (match actual_ty (S.look tyid tenv) with
 				| Types.ARRAY (ty, unique) as aty ->
 					 check_int (trexp size) pos;
 					 let init_expty = trexp init in
@@ -125,18 +165,14 @@ and trans_exp venv tenv exp =
 					 {exp=(); ty=Types.ARRAY (Types.INT, ref ())}
        )
   in trexp exp
-
+					 
 and trans_dec venv tenv = function
   | A.VarDec {A.vardec_name; vardec_ty=None; vardec_init; _} ->
      let {exp; ty} = trans_exp venv tenv vardec_init in
-     (* TODO: constrain NIL to RECORD *)
      {venv=S.enter vardec_name (Env.VarEntry ty) venv; tenv}
   | A.VarDec {A.vardec_name; vardec_ty=Some(tyname, typos); vardec_init; _} ->
      let ty = S.look tyname tenv in
-     let {exp; ty=expty} = trans_exp venv tenv vardec_init in
-     (* TODO: constrain NIL to RECORD *)
-     if ty <> expty
-		 then Printf.eprintf "%d: expected %s, got %s\n" typos (Types.string_of_ty ty) (Types.string_of_ty expty);
+		 check_expty ty (trans_exp venv tenv vardec_init);
      {venv=S.enter vardec_name (Env.VarEntry ty) venv; tenv}
 	| A.TypeDec tydecs ->
 		 let tenv' = List.fold_left (fun tenv {A.tydec_name; tydec_ty; _} ->
@@ -148,8 +184,8 @@ and trans_dec venv tenv = function
 			 ) tydecs;
 		 {venv; tenv=tenv'}
   | A.FunctionDec [{A.fundec_name; fundec_params; fundec_result; fundec_body; fundec_pos}] ->
-		 let resultty = match fundec_result with None -> Types.UNIT | Some(rt, pos) -> S.look rt tenv in
-     let trparam {A.name; escape; ty; pos} = (name, S.look ty tenv) in
+		 let resultty = match fundec_result with None -> Types.UNIT | Some(rt, pos) -> actual_ty (S.look rt tenv) in
+     let trparam {A.name; escape; ty; pos} = (name, actual_ty (S.look ty tenv)) in
      let params' = List.map trparam fundec_params in
      let venv' = S.enter fundec_name (Env.FunEntry ((List.map snd params'), resultty)) venv in
      let enterparam venv (name, ty) = S.enter name (Env.VarEntry ty) venv in
@@ -160,8 +196,8 @@ and trans_dec venv tenv = function
      {venv=venv'; tenv}
 	| A.FunctionDec fundecs ->
 		 let header {A.fundec_name; fundec_params; fundec_result; _ } =
-			 let typarams = List.map (fun {A.ty; _} -> S.look ty tenv) fundec_params in
-			 let tyres = match fundec_result with None -> Types.UNIT | Some(rt, pos) -> S.look rt tenv in
+			 let typarams = List.map (fun {A.ty; _} -> actual_ty (S.look ty tenv)) fundec_params in
+			 let tyres = match fundec_result with None -> Types.UNIT | Some(rt, pos) -> actual_ty (S.look rt tenv) in
 			 (fundec_name, typarams, tyres) in
 		 let enterheader venv (name, typarams, tyres) =
 			 S.enter name (Env.FunEntry (typarams, tyres)) venv in
