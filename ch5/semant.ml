@@ -107,7 +107,7 @@ and trans_exp venv tenv exp =
        check_int (trexp lo) pos;
        check_int (trexp hi) pos;
        let venv' = S.enter var (Env.VarEntry Types.INT) venv in
-			 let body_expty = trexp body in
+			 let body_expty = trans_exp venv' tenv body in
 			 check_expty Types.UNIT body_expty pos;
        {exp=(); ty=Types.UNIT}
     | A.BreakExp p ->
@@ -143,12 +143,17 @@ and trans_dec venv tenv = function
      if ty <> expty
 		 then Printf.eprintf "%d: expected %s, got %s\n" typos (Types.string_of_ty ty) (Types.string_of_ty expty);
      {venv=S.enter vardec_name (Env.VarEntry ty) venv; tenv}
-  | A.TypeDec tydecs ->
-     let trtydec {venv; tenv} {A.tydec_name; tydec_ty; tydec_pos} =
-       {venv; tenv=S.enter tydec_name (trans_ty tenv tydec_ty) tenv} in
-     List.fold_left trtydec {venv;tenv} tydecs
-  | A.FunctionDec [{A.fundec_name; fundec_params; fundec_result=Some(rt,pos); fundec_body; fundec_pos}] ->
-     let resultty = S.look rt tenv in
+	| A.TypeDec tydecs ->
+		 let tenv' = List.fold_left (fun tenv {A.tydec_name; tydec_ty; _} ->
+										 S.enter tydec_name (Types.NAME (tydec_name, ref None)) tenv) tenv tydecs in
+		 List.iter (fun {A.tydec_name; tydec_ty; _} ->
+				 let ty = trans_ty tenv' tydec_ty in
+				 match S.look tydec_name tenv' with
+				 | Types.NAME (_, actualty) -> actualty := Some ty
+			 ) tydecs;
+		 {venv; tenv=tenv'}
+  | A.FunctionDec [{A.fundec_name; fundec_params; fundec_result; fundec_body; fundec_pos}] ->
+		 let resultty = match fundec_result with None -> Types.UNIT | Some(rt, pos) -> S.look rt tenv in
      let trparam {A.name; escape; ty; pos} = (name, S.look ty tenv) in
      let params' = List.map trparam fundec_params in
      let venv' = S.enter fundec_name (Env.FunEntry ((List.map snd params'), resultty)) venv in
@@ -156,17 +161,27 @@ and trans_dec venv tenv = function
      let venv'' = List.fold_left enterparam venv' params' in
      let {ty=bodyty; _} = trans_exp venv'' tenv fundec_body in
      if bodyty <> resultty
-		 then Printf.eprintf "%d: expected %s, got %s\n" pos (Types.string_of_ty resultty) (Types.string_of_ty bodyty);
+		 then Printf.eprintf "%d: expected %s, got %s\n" fundec_pos (Types.string_of_ty resultty) (Types.string_of_ty bodyty);
      {venv=venv'; tenv}
+	| A.FunctionDec fundecs ->
+		 let header {A.fundec_name; fundec_params; fundec_result; _ } =
+			 let typarams = List.map (fun {A.ty; _} -> S.look ty tenv) fundec_params in
+			 let tyres = match fundec_result with None -> Types.UNIT | Some(rt, pos) -> S.look rt tenv in
+			 (fundec_name, typarams, tyres) in
+		 let enterheader venv (name, typarams, tyres) =
+			 S.enter name (Env.FunEntry (typarams, tyres)) venv in
+		 let venv' = List.fold_left enterheader venv (List.map header fundecs) in
+		 List.iter (fun fundec -> ignore (trans_dec venv' tenv (A.FunctionDec [fundec]))) fundecs;
+		 {venv=venv'; tenv}
 
 and trans_ty tenv = function
   | A.NameTy (s, p) ->
-     S.look s tenv
+		 S.look s tenv
   | A.RecordTy fields ->
      let trfield {A.name; escape; ty; pos} = (name, S.look ty tenv) in
-     Types.RECORD ((List.map trfield fields), ref ())
+     Types.RECORD (List.map trfield fields, ref ())
   | A.ArrayTy (s, p) ->
-     Types.ARRAY ((S.look s tenv), ref ())
+     Types.ARRAY (S.look s tenv, ref ())
 
 let trans_prog exp =
   ignore (trans_exp Env.base_venv Env.base_tenv exp)
