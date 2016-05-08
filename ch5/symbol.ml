@@ -19,4 +19,4 @@ module Table =
 type 'a table = 'a Table.t
 let empty = Table.empty
 let enter = Table.add
-let look = Table.find
+let look s t = try Some (Table.find s t) with Not_found -> None
