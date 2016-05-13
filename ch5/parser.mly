@@ -113,7 +113,7 @@ exp:
   | IF exp THEN exp ELSE exp
     { A.IfExp ($2, $4, Some $6, pos()) }
   | IF exp THEN exp
-    { A.IfExp ($2, $2, None, pos()) }
+    { A.IfExp ($2, $4, None, pos()) }
   | WHILE exp DO exp
     { A.WhileExp ($2, $4, pos()) }
   | FOR ID ASSIGN exp TO exp DO exp
