@@ -1,6 +1,5 @@
 (*
    TODO:
-   break only appears witin a while or for loop
    prevent reassignment to for loop variable
 *)
 
@@ -13,6 +12,49 @@ type tenv = T.ty S.table
 type expty = {exp: Translate.exp; ty: T.ty}
 type decenv = {venv: venv; tenv: tenv}
 
+let check_break exp =
+  let rec check inside = function
+  | A.VarExp _ -> ()
+  | A.NilExp -> ()
+  | A.IntExp _ -> ()
+  | A.StringExp _ -> ()
+  | A.CallExp (func, args, pos) ->
+     List.iter (fun arg -> check inside arg) args
+  | A.OpExp (lexp, op, rexp, pos) ->
+     check inside lexp;
+     check inside rexp
+  | A.RecordExp (fields, tyid, pos) ->
+     List.iter (fun (field, exp, pos) -> check inside exp) fields
+  | A.SeqExp exps ->
+     List.iter (fun (exp, pos) -> check inside exp) exps
+  | A.AssignExp (id, exp, pos) ->
+     check inside exp
+  | A.IfExp (test, then', None, pos) ->
+     check inside test;
+     check inside then'
+  | A.IfExp (test, then', Some else', pos) ->
+     check inside test;
+     check inside then';
+     check inside else'                 
+  | A.WhileExp (test, body, pos) ->
+     check true body
+  | A.ForExp (var, escape, lo, hi, body, pos) ->
+     check true body
+  | A.BreakExp pos ->
+     if not inside
+     then Printf.eprintf "%d: break must be nested inside a 'for' or 'while' statement\n" pos
+  | A.LetExp (decs, body, p) ->
+     List.iter (fun dec ->
+         match dec with
+         | A.FunctionDec fundecs ->
+            List.iter (fun {A.fundec_body; _} -> check inside fundec_body) fundecs
+         | A.VarDec {A.vardec_init; _} -> check inside vardec_init
+         | A.TypeDec _ -> ()) decs;
+     check inside body
+  | A.ArrayExp (tyid, size, init, pos) ->
+     check inside init in
+  check false exp
+                          
 let rec actual_ty = function
   | T.NAME (s, ty) ->
      (match !ty with
@@ -300,4 +342,5 @@ and trans_ty tenv = function
      T.ARRAY (ty, ref ())
 
 let trans_prog exp =
-  ignore (trans_exp Env.base_venv Env.base_tenv exp)
+  ignore (trans_exp Env.base_venv Env.base_tenv exp);
+  ignore (check_break exp);
