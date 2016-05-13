@@ -144,8 +144,8 @@ and trans_exp venv tenv exp =
        (match ty1, ty2 with
 	| T.RECORD _, T.RECORD _ -> ()
         | T.RECORD _, T.NIL -> ()
-        | T.NIL _, T.RECORD _ -> ()
-	| T.ARRAY _, T.ARRAY _-> ()
+        | T.NIL, T.RECORD _ -> ()
+	| T.ARRAY _, T.ARRAY _ -> ()
 	| T.INT, T.INT -> ()
 	| _ -> Printf.eprintf "%d: cannot compare %s with %s\n"
 			      pos (T.string_of_ty ty1) (T.string_of_ty ty2));
@@ -156,7 +156,7 @@ and trans_exp venv tenv exp =
        (match ty1, ty2 with
 	| T.RECORD _, T.RECORD _ -> ()
         | T.RECORD _, T.NIL -> ()
-        | T.NIL _, T.RECORD _ -> ()
+        | T.NIL, T.RECORD _ -> ()
 	| T.ARRAY _, T.ARRAY _-> ()
 	| T.INT, T.INT -> ()
 	| _ -> Printf.eprintf "%d: cannot compare %s with %s\n"

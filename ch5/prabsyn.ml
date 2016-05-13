@@ -1,17 +1,13 @@
 module A = Absyn
 
 let rec indent = function
-    0 -> ()
-  | i -> print_string " "; indent (i-1)
+    0 -> ""
+  | i -> " " ^ indent (i-1)
 
 let rec dolist d f = function
-  | [] -> ()
-  | [x] -> print_newline(); f (d+1) x
-  | x :: xs ->
-     print_newline();
-     f (d+1) x;
-     print_string ",";
-     dolist d f xs
+  | [] -> ""
+  | [x] -> "\n" ^ f (d+1) x
+  | x :: xs -> "\n" ^ f (d+1) x ^ "," ^ dolist d f xs
 
 let opname = function
     A.PlusOp -> "PlusOp"
@@ -26,212 +22,80 @@ let opname = function
   | A.GeOp -> "GeOp"
 
 let print_field d {A.name; escape; ty; pos} =
-  indent d;
-  print_string "(";
-  print_string (Symbol.name name);
-  print_string ",";
-  print_string (string_of_bool !escape);
-  print_string ",";
-  print_string (Symbol.name ty);
-  print_string ")"
+  indent d ^ "(" ^ (Symbol.name name) ^ "," ^ (string_of_bool !escape) ^ "," ^ (Symbol.name ty) ^ ")"
 
 let rec print_var d = function
   | A.SimpleVar (s, p) ->
-     indent d;
-     print_string "SimpleVar(";
-     print_string (Symbol.name s);
-     print_string ")"
+     indent d ^ "SimpleVar(" ^ (Symbol.name s) ^ ")"
   | A.FieldVar (v, s, p) ->
-     indent d;
-     print_endline "FieldVar(";
-     print_var (d+1) v;
-     print_endline ",";
-     indent (d+1);
-     print_string (Symbol.name s);
-     print_string ")"
+     indent d ^ "\nFieldVar(" ^ print_var (d+1) v ^ "\n," ^ indent (d+1) ^ (Symbol.name s) ^ ")"
   | A.SubscriptVar (v, e, p) ->
-     indent d;
-     print_endline "SubscriptVar(";
-     print_var (d+1) v;
-     print_endline ",";
-     print_exp (d+1) e;
-     print_string ")"
+     indent d ^ "\nSubscriptVar(" ^ print_var (d+1) v ^ "\n," ^ print_exp (d+1) e ^ ")"
 
 and print_exp d = function
   | A.VarExp v ->
-     indent d;
-     print_endline "VarExp(";
-     print_var (d+1) v;
-     print_string ")"
+     indent d ^ "\nVarExp(" ^ print_var (d+1) v ^ ")"
   | A.NilExp ->
-     indent d;
-     print_string "NilExp"
+     indent d ^ "NilExp"
   | A.IntExp i ->
-     indent d;
-     print_string "IntExp(";
-     print_int i;
-     print_string ")"
+     indent d ^ "IntExp(" ^ string_of_int i ^ ")"
   | A.StringExp (s, p) ->
-     indent d;
-     print_string "StringExp(\"";
-     print_string s;
-     print_string "\")"
+     indent d ^ "StringExp(\"" ^ s ^ "\")"
   | A.CallExp (s, args, p) ->
-     indent d;
-     print_string "CallExp(";
-     print_string (Symbol.name s);
-     print_string ",[";
-     dolist d print_exp args;
-     print_string "])"
+     indent d ^ "CallExp(" ^ (Symbol.name s) ^ ",[" ^ dolist d print_exp args ^ "])"
   | A.OpExp (l, op, r, p) ->
-     indent d;
-     print_string "OpExp(";
-     print_string (opname op);
-     print_endline ",";
-     print_exp (d+1) l;
-     print_endline ",";
-     print_exp (d+1) r;
-     print_string ")"
+     indent d ^ "OpExp(" ^ print_exp (d+1) l ^ "\n," ^ (opname op) ^ "\n," ^ print_exp (d+1) r ^ ")"
   | A.RecordExp (fields, typ, p) ->
      let print_recfield d (s, e, p) =
-       indent d;
-       print_string "(";
-       print_string (Symbol.name s);
-       print_endline ",";
-       print_exp (d+1) e;
-       print_string ")" in
-     indent d;
-     print_string "RecordExp(";
-     print_string (Symbol.name typ);
-     print_endline ",[";
-     dolist d print_recfield fields;
-     print_string "])"
+       indent d ^ "(" ^ (Symbol.name s) ^ "\n," ^ print_exp (d+1) e ^ ")" in
+     indent d ^ "RecordExp(" ^ (Symbol.name typ) ^ "\n,[" ^ dolist d print_recfield fields ^ "])"
   | A.SeqExp exps ->
-     indent d;
-     print_string "SeqExp[";
-     dolist d print_exp (List.map fst exps);
-     print_string "]"
+     indent d ^ "SeqExp[" ^ dolist d print_exp (List.map fst exps) ^ "]"
   | A.AssignExp (v, e, p) ->
-     indent d;
-     print_endline "AssignExp(";
-     print_var (d+1) v;
-     print_endline ",";
-     print_exp (d+1) e;
-     print_string ")"
+     indent d ^ "\nAssignExp(" ^ print_var (d+1) v ^ "\n," ^ print_exp (d+1) e ^ ")"
   | A.IfExp (test, then', else', p) ->
-     indent d;
-     print_endline "IfExp(";
-     print_exp (d+1) test;
-     print_endline ",";
-     print_exp (d+1) then';
-     (match else' with
-	Some e -> print_endline ","; print_exp (d+1) e
-      | None -> ());
-     print_string ")"
+     indent d ^ "\nIfExp(" ^ print_exp (d+1) test ^ "\n," ^
+       print_exp (d+1) then' ^
+         (match else' with Some e -> "\n," ^ print_exp (d+1) e | None -> "") ^ ")"
   | A.WhileExp (test, body, p) ->
-     indent d;
-     print_endline "WhileExp(";
-     print_exp (d+1) test;
-     print_endline ",";
-     print_exp (d+1) body;
-     print_string ")"
+     indent d ^ "\nWhileExp(" ^ print_exp (d+1) test ^ "\n," ^ print_exp (d+1) body ^ "\n," ^ string_of_int p ^ ")"
   | A.ForExp (v, b, lo, hi, body, p) ->
-     indent d;
-     print_endline "ForExp(";
-     print_string (Symbol.name v);
-     print_string ",";
-     print_string (string_of_bool !b);
-     print_endline ",";
-     print_exp (d+1) lo;
-     print_endline ",";
-     print_exp (d+1) hi;
-     print_endline ",";
-     print_exp (d+1) body;
-     print_endline ",";
-     print_string ")"
+     indent d ^ "\nForExp(" ^ (Symbol.name v) ^ "," ^ (string_of_bool !b) ^ "\n," ^
+       print_exp (d+1) lo ^ "\n," ^ print_exp (d+1) hi ^ "\n," ^
+         print_exp (d+1) body ^ "\n" ^ ")"
   | A.BreakExp p ->
-     indent d;
-     print_string "BreakExp"
+     indent d ^ "BreakExp"
   | A.LetExp (decs, body, p) ->
-     indent d;
-     print_string "LetExp([";
-     dolist d print_dec decs;
-     print_endline "],";
-     print_exp (d+1) body;
-     print_string ")"
+     indent d ^ "LetExp([" ^ dolist d print_dec decs ^ "\n]," ^ print_exp (d+1) body ^ ")"
   | A.ArrayExp (typ, size, init, p) ->
-     indent d;
-     print_string "ArrayExp(";
-     print_string (Symbol.name typ);
-     print_endline ",";
-     print_exp (d+1) size;
-     print_endline ",";
-     print_exp (d+1) init;
-     print_string ")"
+     indent d ^
+     "ArrayExp(" ^ (Symbol.name typ) ^ "\n," ^ print_exp (d+1) size ^ "\n," ^ print_exp (d+1) init ^ ")"
 
 and print_dec d = function
   | A.FunctionDec l ->
-     indent d;
-     print_string "FunctionDec[";
-     dolist d print_fundec l;
-     print_string "]"
+     indent d ^ "FunctionDec[" ^ dolist d print_fundec l ^ "]"
   | A.VarDec {A.vardec_name; vardec_escape; vardec_ty; vardec_init; vardec_pos} ->
-     indent d;
-     print_string "VarDec(";
-     print_string (Symbol.name vardec_name);
-     print_string ",";
-     print_string (string_of_bool !vardec_escape);
-     print_string ",";
-     (match vardec_ty with
-	 Some (s, _) -> print_string "Some("; print_string (Symbol.name s); print_string ")"
-       | None -> print_string "None");
-     print_string ")";
-     print_endline ",";
-     print_exp (d+1) vardec_init;
-     print_string ")"
+     indent d ^ "VarDec(" ^ (Symbol.name vardec_name) ^ "," ^
+       (string_of_bool !vardec_escape) ^ "," ^
+         (match vardec_ty with Some (s, _) -> "Some(" ^ (Symbol.name s) ^ ")" | None -> "None") ^ ")" ^ "\n," ^
+           print_exp (d+1) vardec_init ^ ")"
   | A.TypeDec l ->
-     indent d;
-     print_string "TypeDec[";
-     dolist d print_tydec l;
-     print_string "]"
+     indent d ^ "TypeDec[" ^ dolist d print_tydec l ^ "]"
 
 and print_ty d = function
   | A.NameTy (s, p) ->
-     indent d;
-     print_string "NameTy(";
-     print_string (Symbol.name s);
-     print_string ")"
+     indent d ^ "NameTy(" ^ (Symbol.name s) ^ ")"
   | A.RecordTy fields ->
-     indent d;
-     print_string "RecordTy[";
-     dolist d print_field fields;
-     print_string "]"
+     indent d ^ "RecordTy[" ^ dolist d print_field fields ^ "]"
   | A.ArrayTy (s, p) ->
-     indent d;
-     print_string "ArrayTy(";
-     print_string (Symbol.name s);
-     print_string ")"
+     indent d ^ "ArrayTy(" ^ (Symbol.name s) ^ ")"
 
 and print_fundec d {A.fundec_name; fundec_params; fundec_result; fundec_body; fundec_pos} =
-  indent d;
-  print_string "(";
-  print_string (Symbol.name fundec_name);
-  print_string ",[";
-  dolist d print_field fundec_params;
-  print_endline "],";
-  (match fundec_result with
-     Some (s, _) -> print_string "Some("; print_string (Symbol.name s); print_string ")"
-   | None -> print_string "None");
-  print_endline ",";
-  print_exp (d+1) fundec_body;
-  print_string ")"
+  indent d ^ "(" ^ (Symbol.name fundec_name) ^ ",[" ^ dolist d print_field fundec_params ^ "\n]," ^
+    (match fundec_result with Some (s, _) -> "Some(" ^ (Symbol.name s) ^ ")" | None -> "None") ^
+      "\n," ^ print_exp (d+1) fundec_body ^ ")"
 
 and print_tydec d {A.tydec_name; tydec_ty; tydec_pos} =
-  indent d;
-  print_string "(";
-  print_string (Symbol.name tydec_name);
-  print_endline ",";
-  print_ty (d+1) tydec_ty;
-  print_string ")"
+  indent d ^ "(" ^ (Symbol.name tydec_name) ^ "\n," ^ print_ty (d+1) tydec_ty ^ ")"
 
-let print e = print_exp 0 e; print_newline()
+let print e = print_exp 0 e
