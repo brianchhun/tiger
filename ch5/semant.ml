@@ -42,7 +42,7 @@ let check_break exp =
      check true body
   | A.BreakExp pos ->
      if not inside
-     then Printf.eprintf "%d: break must be nested inside a 'for' or 'while' statement\n" pos
+     then Printf.eprintf "%d: break must be nested inside a for or while statement\n" pos
   | A.LetExp (decs, body, p) ->
      List.iter (fun dec ->
          match dec with
