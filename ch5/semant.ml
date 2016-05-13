@@ -96,7 +96,7 @@ let rec trans_var venv tenv = function
 	    let (fieldname, fieldty) = List.find (fun (fieldname, fieldty) ->  fieldname = id) fields in
 	    {exp=(); ty=fieldty}
 	  with Not_found ->
-	    Printf.eprintf "%d: undefined field %s in record\n" pos (S.name id);
+	    Printf.eprintf "%d: undefined record field '%s'\n" pos (S.name id);
 	    {exp=();ty=T.INT})
       | ty ->
 	 Printf.eprintf "%d: expected record, got %s\n" pos (T.string_of_ty ty);
@@ -180,7 +180,7 @@ and trans_exp venv tenv exp =
 	       Printf.eprintf "%d: expected record, got %s\n" pos (T.string_of_ty ty);
 	       {exp=(); ty=T.RECORD([], ref ())})
 	| None ->
-	   Printf.eprintf "%d: undefined record %s\n" pos (S.name tyid);
+	   Printf.eprintf "%d: undefined record field '%s'\n" pos (S.name tyid);
 	   {exp=(); ty=T.RECORD([], ref ())})
     | A.SeqExp (exps) ->
        List.fold_left (fun _ (exp, pos) ->
