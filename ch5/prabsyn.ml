@@ -25,14 +25,14 @@ let opname = function
   | A.GtOp -> "GtOp"
   | A.GeOp -> "GeOp"
 
-let print_field d {A.name; escape; typ; pos} =
+let print_field d {A.name; escape; ty; pos} =
   indent d;
   print_string "(";
   print_string (Symbol.name name);
   print_string ",";
   print_string (string_of_bool !escape);
   print_string ",";
-  print_string (Symbol.name typ);
+  print_string (Symbol.name ty);
   print_string ")"
 
 let rec print_var d = function
@@ -175,19 +175,19 @@ and print_dec d = function
      print_string "FunctionDec[";
      dolist d print_fundec l;
      print_string "]"
-  | A.VarDec {A.vardec_name; escape; typ; init; vardec_pos} ->
+  | A.VarDec {A.vardec_name; vardec_escape; vardec_ty; vardec_init; vardec_pos} ->
      indent d;
      print_string "VarDec(";
      print_string (Symbol.name vardec_name);
      print_string ",";
-     print_string (string_of_bool !escape);
+     print_string (string_of_bool !vardec_escape);
      print_string ",";
-     (match typ with
+     (match vardec_ty with
 	 Some (s, _) -> print_string "Some("; print_string (Symbol.name s); print_string ")"
        | None -> print_string "None");
      print_string ")";
      print_endline ",";
-     print_exp (d+1) init;
+     print_exp (d+1) vardec_init;
      print_string ")"
   | A.TypeDec l ->
      indent d;
@@ -212,26 +212,26 @@ and print_ty d = function
      print_string (Symbol.name s);
      print_string ")"
 
-and print_fundec d {A.fundec_name; params; result; body; fundec_pos} =
+and print_fundec d {A.fundec_name; fundec_params; fundec_result; fundec_body; fundec_pos} =
   indent d;
   print_string "(";
   print_string (Symbol.name fundec_name);
   print_string ",[";
-  dolist d print_field params;
+  dolist d print_field fundec_params;
   print_endline "],";
-  (match result with
+  (match fundec_result with
      Some (s, _) -> print_string "Some("; print_string (Symbol.name s); print_string ")"
    | None -> print_string "None");
   print_endline ",";
-  print_exp (d+1) body;
+  print_exp (d+1) fundec_body;
   print_string ")"
 
-and print_tydec d {A.typedec_name; ty; typedec_pos} =
+and print_tydec d {A.tydec_name; tydec_ty; tydec_pos} =
   indent d;
   print_string "(";
-  print_string (Symbol.name typedec_name);
+  print_string (Symbol.name tydec_name);
   print_endline ",";
-  print_ty (d+1) ty;
+  print_ty (d+1) tydec_ty;
   print_string ")"
 
-let print e = print_exp 0 e; flush stdout
+let print e = print_exp 0 e; print_newline()
