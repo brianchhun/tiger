@@ -15,11 +15,11 @@ type t = Arity_mismatch of int * int
        | Undefined_record_field of string
        | Undefined_variable of string
        | Undefined_type of string
-				 
+
 val any_errors : bool ref
 val line_num : int ref
 val line_pos : int list ref
 val error : int -> t -> unit
-exception Error of string 
+exception Error of string
 val impossible : string -> 'a  (* raises Error *)
 val reset : unit -> unit
