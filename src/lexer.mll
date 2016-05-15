@@ -79,10 +79,10 @@ rule token = parse
   | eof                   { EOF }
   | _ as c                { raise (Unexpected_character c) }
 and string buf = parse
-  | '"'     { Buffer.contents buf }
-  | '\\'    { escape buf lexbuf }
-  | eof     { raise Unterminated_string }
-  | _ as c  { Buffer.add_char buf c; string buf lexbuf }
+  | '"'                   { Buffer.contents buf }
+  | '\\'                  { escape buf lexbuf }
+  | eof                   { raise Unterminated_string }
+  | _ as c                { Buffer.add_char buf c; string buf lexbuf }
 and escape buf = parse
   | '\\' | 'n' | 't' | '"' as c
     { Buffer.add_char buf (unescape_char c); string buf lexbuf }
@@ -97,9 +97,9 @@ and escape buf = parse
   | eof
     { raise Unterminated_string }
 and comment depth = parse
-  | "*/"    { if depth=0
-              then token lexbuf
-              else comment (depth-1) lexbuf }
-  | "/*"    { comment (depth+1) lexbuf }
-  | eof     { raise Unterminated_comment }
-  | _       { comment depth lexbuf }
+  | "*/"                  { if depth=0
+                            then token lexbuf
+                            else comment (depth-1) lexbuf }
+  | "/*"                  { comment (depth+1) lexbuf }
+  | eof                   { raise Unterminated_comment }
+  | _                     { comment depth lexbuf }
