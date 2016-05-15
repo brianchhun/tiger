@@ -79,17 +79,23 @@ rule token = parse
   | eof                   { EOF }
   | _ as c                { raise (Unexpected_character c) }
 and string buf = parse
-  | '\\' (['\\' 'n' 't' '"'] as c)
-    { Buffer.add_char buf (unescape_char c); string buf lexbuf }
-  | '\\' '^' (_ as c)
-    { Buffer.add_char buf (unescape_control c); string buf lexbuf }
-  | '\\' (['0'-'9'] ['0'-'9'] ['0'-'9'] as s)
-    { Buffer.add_char buf (unescape_code s); string buf lexbuf }
-  | '\\' ('\\' 'n' | '\\' 't' | '\\' 'r' | ' ') + '\\'
-    { string buf lexbuf }
   | '"'     { Buffer.contents buf }
+  | '\\'    { escape buf lexbuf }
   | eof     { raise Unterminated_string }
   | _ as c  { Buffer.add_char buf c; string buf lexbuf }
+and escape buf = parse
+  | '\\' | 'n' | 't' | '"' as c
+    { Buffer.add_char buf (unescape_char c); string buf lexbuf }
+  | '^' (_ as c)
+    { Buffer.add_char buf (unescape_control c); string buf lexbuf }
+  | ['0'-'9'] ['0'-'9'] ['0'-'9'] as s
+    { Buffer.add_char buf (unescape_code s); string buf lexbuf }
+  | ('\\' 'n' | '\\' 't' | '\\' 'r' | ' ') + '\\'
+    { string buf lexbuf }
+  | _ as c
+    { raise (Illegal_escape_sequence ("\\" ^ String.make 1 c)) }
+  | eof
+    { raise Unterminated_string }
 and comment depth = parse
   | "*/"    { if depth=0
               then token lexbuf
