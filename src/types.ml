@@ -1,11 +1,11 @@
 type unique = unit ref
 
-type t = RECORD of (Symbol.symbol * t) list * unique
+type t = RECORD of (Symbol.t * t) list * unique
        | NIL
        | INT
        | STRING
        | ARRAY of t * unique
-       | NAME of Symbol.symbol * t option ref
+       | NAME of Symbol.t * t option ref
        | UNIT
 
 let rec string_of_ty = function

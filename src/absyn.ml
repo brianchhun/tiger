@@ -1,5 +1,5 @@
 type pos = int
-type symbol = Symbol.symbol
+type symbol = Symbol.t
 
 type field = {
     name: symbol;

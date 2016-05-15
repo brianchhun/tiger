@@ -1,7 +1,7 @@
-type symbol
-val symbol : string -> symbol
-val name : symbol -> string
+type t
+val symbol : string -> t
+val name : t -> string
 type 'a table
 val empty : 'a table
-val enter : symbol -> 'a -> 'a table -> 'a table
-val look : symbol -> 'a table -> 'a option
+val enter : t -> 'a -> 'a table -> 'a table
+val look : t -> 'a table -> 'a option

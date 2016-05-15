@@ -1,4 +1,4 @@
-type symbol = string * int
+type t = string * int
 let nextsym = ref 0
 let size_hint = 128
 let hash_table : (string, int) Hashtbl.t = Hashtbl.create size_hint
@@ -15,7 +15,10 @@ let name = function
   | (s,i) -> s
 
 module Table =
-  Map.Make(struct type t = symbol let compare = compare end)
+  Map.Make(struct
+	    type symbol = t (* how to reference the t up there? *)
+	    type t = symbol
+	    let compare = compare end)
 type 'a table = 'a Table.t
 let empty = Table.empty
 let enter = Table.add
