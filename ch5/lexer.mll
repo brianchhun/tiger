@@ -85,7 +85,7 @@ and string buf = parse
     { Buffer.add_char buf (unescape_control c); string buf lexbuf }
   | '\\' (['0'-'9'] ['0'-'9'] ['0'-'9'] as s)
     { Buffer.add_char buf (unescape_code s); string buf lexbuf }
-  | '\\' [' ' '\n' '\t' '\r'] + '\\'
+  | '\\' ('\\' 'n' | '\\' 't' | '\\' 'r' | ' ') + '\\'
     { string buf lexbuf }
   | '"'     { Buffer.contents buf }
   | eof     { raise Unterminated_string }
