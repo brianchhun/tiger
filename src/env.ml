@@ -1,6 +1,6 @@
 type access
-type enventry = VarEntry of Types.ty
-	      | FunEntry of Types.ty list * Types.ty
+type enventry = VarEntry of Types.t
+	      | FunEntry of Types.t list * Types.t
 
 let base_tenv =
   Symbol.enter (Symbol.symbol "int") Types.INT

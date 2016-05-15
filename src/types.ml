@@ -1,12 +1,12 @@
 type unique = unit ref
 
-type ty = RECORD of (Symbol.symbol * ty) list * unique
-	| NIL
-	| INT
-	| STRING
-	| ARRAY of ty * unique
-	| NAME of Symbol.symbol * ty option ref
-	| UNIT
+type t = RECORD of (Symbol.symbol * t) list * unique
+       | NIL
+       | INT
+       | STRING
+       | ARRAY of t * unique
+       | NAME of Symbol.symbol * t option ref
+       | UNIT
 
 let rec string_of_ty = function
 	| RECORD (fields, unique) ->

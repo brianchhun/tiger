@@ -8,8 +8,8 @@ module S = Symbol
 module T = Types
 
 type venv = Env.enventry S.table
-type tenv = T.ty S.table
-type expty = {exp: Translate.exp; ty: T.ty}
+type tenv = T.t S.table
+type expty = {exp: Translate.exp; ty: T.t}
 type decenv = {venv: venv; tenv: tenv}
 
 let check_break exp =
