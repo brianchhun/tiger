@@ -1,6 +1,5 @@
 /* error: mutually recursive types thet do not pass through record or array */
 let 
-
 type a=c
 type b=a
 type c=d

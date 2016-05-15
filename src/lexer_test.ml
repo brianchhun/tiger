@@ -1,4 +1,5 @@
-open OUnit
+open OUnit2
+
 module P = Parser
 
 let tokenize str =
@@ -11,7 +12,7 @@ let tokenize str =
 
 let ids = "ids">:::
 	    List.map (fun (str, expected) ->
-		str>:: (fun () -> assert_equal (tokenize str) expected))
+		str>:: (fun test_ctxt -> assert_equal (tokenize str) expected))
 		     [("a", [P.ID "a"]);
 		      ("a1", [P.ID "a1"]);
 		      ("a_b", [P.ID "a_b"])
@@ -19,80 +20,80 @@ let ids = "ids">:::
 
 let ints = "ints">:::
 	     List.map (fun (str, expected) ->
-		 str>:: (fun () -> assert_equal (tokenize str) expected))
+		 str>:: (fun test_ctxt -> assert_equal (tokenize str) expected))
 		      [("1", [P.INT 1]);
 		       ("12", [P.INT 12])
 		      ]
 
 let strings = "strings">:::[
       "strings">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.STRING "Hello World"]
 	    (tokenize "\"Hello World\""));
       "escape char">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.STRING "\\\n\t\""]
 	    (tokenize "\"\\\\\\n\\t\\\"\""));
       "bad escape char">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_raises
 	    (Lexer.Illegal_escape_sequence "\\x")
-	    (fun () -> tokenize "\"\\x\""));
+	    (fun test_ctxt -> tokenize "\"\\x\""));
       "escape control">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.STRING "\x00\x03\x01\x1d\x1f"]
 	    (tokenize "\"\\^@\\^C\\^A\\^]\\^_\""));
       "bad escape control">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_raises
 	    (Lexer.Illegal_escape_sequence "\\^+")
-	    (fun () -> tokenize "\"\\^+\""));
+	    (fun test_ctxt -> tokenize "\"\\^+\""));
       "escape code">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.STRING "\000\001\255"]
 	    (tokenize "\"\\000\\001\\255\""));
       "bad escape code">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_raises
 	    (Lexer.Illegal_escape_sequence "\\256")
-	    (fun () -> tokenize "\"\\256\""));
+	    (fun test_ctxt -> tokenize "\"\\256\""));
       "ignored escape sequence">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.STRING "Hello World"]
 	    (tokenize "\"Hello\\\\n   \\t\\r\\ World\""));
       "unterminated escape sequence">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_raises
 	    Lexer.Unterminated_string
-	    (fun () -> tokenize "\"abc\\\\n\\n"));
+	    (fun test_ctxt -> tokenize "\"abc\\\\n\\n"));
     ]
 
 let comments = "comments">:::[
       "comments">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.ID "x"]
 	    (tokenize "/* xy\\nzy */ x"));
       "nested">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [P.ID "x"]
 	    (tokenize "/* x /* zy /**/ */ x */ x"));
       "unterminated">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_raises
 	    Lexer.Unterminated_comment
-	    (fun () -> tokenize "/* /* hello xx */"));
+	    (fun test_ctxt -> tokenize "/* /* hello xx */"));
     ]
 
 let progs = "progs">:::[
       "test1">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [
 	      P.LET;
@@ -125,7 +126,7 @@ in
 	arr1
 end"));
       "test4">::
-	(fun () ->
+	(fun test_ctxt ->
 	  assert_equal
 	    [
 	      P.LET;
@@ -167,7 +168,7 @@ let
 
 /* calculate n! */
 function nfactor(n: int): int =
-		if  n = 0 
+		if  n = 0
 			then 1
 			else n * nfactor(n-1)
 
@@ -175,7 +176,7 @@ in
 	nfactor(10)
 end"))
     ]
-			     
+
 let suite = "suite">:::
 	      [ids;
 	       ints;
