@@ -1,6 +1,7 @@
 %{
   module A = Absyn
   module S = Symbol
+  module P = Parsing
   let pos () = Parsing.symbol_start()
 %}
 %token <int> INT
@@ -216,7 +217,7 @@ vardec:
   | VAR ID COLON ID ASSIGN exp
     { {A.vardec_name = S.symbol $2;
        vardec_escape = ref true;
-       vardec_ty = Some (S.symbol $4, pos());
+       vardec_ty = Some (S.symbol $4, P.rhs_start 4);
        vardec_init = $6;
        vardec_pos = pos()} }
   ;

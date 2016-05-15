@@ -75,7 +75,10 @@ rule token = parse
   | integer as i          { INT (int_of_string i) }
   | '"'                   { STRING (string (Buffer.create 16) lexbuf) }
   | "/*"                  { comment 0 lexbuf }
-  | [' ' '\n' '\t' '\r']  { token lexbuf }
+  | [' ' '\t' '\r']       { token lexbuf }
+  | '\n'                  { Error_msg.line_num := !Error_msg.line_num + 1;
+                            Error_msg.line_pos := Lexing.lexeme_start lexbuf :: !Error_msg.line_pos;
+                            token lexbuf  }
   | eof                   { EOF }
   | _ as c                { raise (Unexpected_character c) }
 and string buf = parse

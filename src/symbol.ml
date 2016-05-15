@@ -16,7 +16,7 @@ let name = function
 
 module Table =
   Map.Make(struct
-	    type symbol = t (* how to reference the t up there? *)
+	    type symbol = t
 	    type t = symbol
 	    let compare = compare end)
 type 'a table = 'a Table.t
