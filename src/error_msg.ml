@@ -7,6 +7,7 @@ type t = Arity_mismatch of int * int
        | Illegal_comparison of string * string
        | Record_field_mismatch of string * string
        | Record_type_mismatch
+       | Syntax_error
        | Type_mismatch of string * string
        | Unconstrained_nil
        | Undefined_array of string
@@ -35,6 +36,8 @@ let string_of_error_msg = function
      "expected record field " ^ s ^ " but got " ^ t
   | Record_type_mismatch ->
      "different record types"
+  | Syntax_error ->
+     "syntax_error"
   | Type_mismatch (s, t) ->
      "expected type " ^ s ^ " but got type " ^ t
   | Unconstrained_nil ->
@@ -69,6 +72,8 @@ let error pos errmsg =
 
 exception Error of string
 let impossible msg = raise (Error msg)
+			   
+let syntax_error() = print_endline (string_of_error_msg Syntax_error)
 
 let reset () =
   any_errors := false;

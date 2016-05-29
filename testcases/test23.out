@@ -1,0 +1,2 @@
+7.12:expected type string but got type int
+8.10:expected type int but got type string

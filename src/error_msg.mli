@@ -7,6 +7,7 @@ type t = Arity_mismatch of int * int
        | Illegal_comparison of string * string
        | Record_field_mismatch of string * string
        | Record_type_mismatch
+       | Syntax_error
        | Type_mismatch of string * string
        | Unconstrained_nil
        | Undefined_array of string
@@ -22,4 +23,5 @@ val line_pos : int list ref
 val error : int -> t -> unit
 exception Error of string
 val impossible : string -> 'a  (* raises Error *)
+val syntax_error : unit -> unit
 val reset : unit -> unit
