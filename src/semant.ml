@@ -1,8 +1,3 @@
-(*
-   TODO:
-   prevent reassignment to for loop variable
-*)
-
 module A = Absyn
 module S = Symbol
 module T = Types
@@ -20,48 +15,21 @@ let rec actual_ty = function
   | ty -> ty
 
 let check_expty ty {exp; ty=ty'} pos =
-  (match actual_ty ty, ty' with
-   | (T.RECORD (_, uniq1)), (T.RECORD (_, uniq2)) ->
-      if uniq1 != uniq2
-      then Error_msg.error pos (Error_msg.Record_type_mismatch)
-   | T.RECORD _, T.NIL -> ()
-   | T.NIL , T.RECORD _ -> ()
-   | (T.ARRAY (_, uniq1)), (T.ARRAY (_, uniq2)) ->
-      if uniq1 != uniq2
-      then Error_msg.error pos (Error_msg.Array_type_mismatch)
-   | actual, ty' when actual <> ty' ->
-      Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty actual, T.string_of_ty ty'))
-   | _ -> ())
+  match actual_ty ty, ty' with
+  | (T.RECORD (_, uniq1)), (T.RECORD (_, uniq2)) ->
+     if uniq1 != uniq2
+     then Error_msg.error pos (Error_msg.Record_type_mismatch)
+  | T.RECORD _, T.NIL -> ()
+  | T.NIL , T.RECORD _ -> ()
+  | (T.ARRAY (_, uniq1)), (T.ARRAY (_, uniq2)) ->
+     if uniq1 != uniq2
+     then Error_msg.error pos (Error_msg.Array_type_mismatch)
+  | actual, ty' when actual <> ty' ->
+     Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty actual, T.string_of_ty ty'))
+  | _ -> ()
 
 let check_int = check_expty T.INT
 let check_unit = check_expty T.UNIT
-
-let checktydups tydecs =
-  let rec loop seen = function
-    | [] -> ()
-    | {A.tydec_name; tydec_pos; _} :: xs ->
-       if List.mem tydec_name seen
-       then Error_msg.error tydec_pos (Error_msg.Duplicate_type_declaration (S.name tydec_name));
-       loop (tydec_name :: seen) xs in
-  loop [] tydecs
-
-let checkfundups fundecs =
-  let rec loop seen = function
-    | [] -> ()
-    | {A.fundec_name; fundec_pos; _} :: xs ->
-       if List.mem fundec_name seen
-       then Error_msg.error fundec_pos (Error_msg.Duplicate_function_declaration (S.name fundec_name));
-       loop (fundec_name :: seen) xs in
-  loop [] fundecs
-       
-let checkcomp lty rty pos =
-    match lty, rty  with
-    | T.RECORD _, T.RECORD _ -> ()
-    | T.RECORD _, T.NIL -> ()
-    | T.NIL, T.RECORD _ -> ()
-    | T.ARRAY _, T.ARRAY _ -> ()
-    | T.INT, T.INT -> ()
-    | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty))
 
 let rec trans_var venv tenv breakable = function
   | A.SimpleVar (id, pos) ->
@@ -99,6 +67,15 @@ let rec trans_var venv tenv breakable = function
 
 and trans_exp venv tenv breakable exp =
 
+  let checkcomp lty rty pos =
+    match lty, rty  with
+    | T.RECORD _, T.RECORD _ -> ()
+    | T.RECORD _, T.NIL -> ()
+    | T.NIL, T.RECORD _ -> ()
+    | T.ARRAY _, T.ARRAY _ -> ()
+    | T.INT, T.INT -> ()
+    | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty)) in
+  
   let rec trexp = function
     | A.VarExp var ->
        let {exp; ty} = trans_var venv tenv breakable var in
@@ -229,6 +206,14 @@ and trans_dec venv tenv breakable = function
 	     S.enter vardec_name (Env.VarEntry T.INT) venv in
      {venv=venv'; tenv}
   | A.TypeDec tydecs ->
+     let checkdups() =
+       let rec loop seen = function
+	 | [] -> ()
+	 | {A.tydec_name; tydec_pos; _} :: xs ->
+	    if List.mem tydec_name seen
+	    then Error_msg.error tydec_pos (Error_msg.Duplicate_type_declaration (S.name tydec_name));
+	    loop (tydec_name :: seen) xs in
+       loop [] tydecs in
      let nametys = List.map (fun {A.tydec_name; _} ->
 		       T.NAME (tydec_name, ref None))
 			    tydecs in
@@ -242,6 +227,7 @@ and trans_dec venv tenv breakable = function
      let actualtys = List.map (fun {A.tydec_ty; _ } ->
 			 trans_ty tenv' tydec_ty)
 			      tydecs in
+     checkdups();
      List.iter2 (fun namety actualty ->
 	 match namety with
 	 | T.NAME (name, ty) ->
@@ -249,10 +235,17 @@ and trans_dec venv tenv breakable = function
 	 | _ -> Error_msg.impossible "expected name type")
 		nametys
 		actualtys;
-     checktydups tydecs;
      (*     checkcycle tydecs; *)
      {venv; tenv=tenv'}
   | A.FunctionDec fundecs ->
+     let checkdups() =
+       let rec loop seen = function
+	 | [] -> ()
+	 | {A.fundec_name; fundec_pos; _} :: xs ->
+	    if List.mem fundec_name seen
+	    then Error_msg.error fundec_pos (Error_msg.Duplicate_function_declaration (S.name fundec_name));
+	    loop (fundec_name :: seen) xs in
+       loop [] fundecs in
      let header {A.fundec_name; fundec_params; fundec_result; _} =
        let trparam {A.ty=paramtyid; pos=paramtypos; _} =
 	 match S.look paramtyid tenv with
@@ -272,6 +265,7 @@ and trans_dec venv tenv breakable = function
 		     S.enter name (Env.FunEntry (paramtys, resultty)) venv)
 				venv
 				headers in
+     checkdups();
      List.iter2 (fun (name, paramtys, resultty) {A.fundec_body; A.fundec_params; fundec_pos; _} ->
 	 let venv'' = List.fold_left2 (fun venv {A.name=paramname; _} paramty ->
 			  S.enter paramname (Env.VarEntry paramty) venv)
@@ -282,7 +276,6 @@ and trans_dec venv tenv breakable = function
 	 check_expty resultty bodyexpty fundec_pos)
 		headers
 		fundecs;
-     checkfundups fundecs;
      {venv=venv'; tenv}
        
 and trans_ty tenv = function

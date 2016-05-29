@@ -25,7 +25,11 @@ let unescape_code s =
   if code >= 0 && code <= 255
   then Char.chr code
   else raise (Illegal_escape_sequence ("\\" ^ s))
-}
+
+let advance_line line_pos =
+  Error_msg.line_num := !Error_msg.line_num + 1;
+  Error_msg.line_pos := line_pos :: !Error_msg.line_pos
+}			    
 
 let identifier = ['a'-'z' 'A'-'Z'] (['a'-'z' 'A'-'Z'] | ['0'-'9'] | '_') *
 let integer = ['0'-'9'] +
@@ -76,14 +80,15 @@ rule token = parse
   | '"'                   { STRING (string (Buffer.create 16) lexbuf) }
   | "/*"                  { comment 0 lexbuf }
   | [' ' '\t' '\r']       { token lexbuf }
-  | '\n'                  { Error_msg.line_num := !Error_msg.line_num + 1;
-                            Error_msg.line_pos := Lexing.lexeme_start lexbuf :: !Error_msg.line_pos;
-                            token lexbuf  }
+  | '\n'                  { advance_line (Lexing.lexeme_start lexbuf); token lexbuf  }
   | eof                   { EOF }
   | _ as c                { raise (Unexpected_character c) }
 and string buf = parse
   | '"'                   { Buffer.contents buf }
   | '\\'                  { escape buf lexbuf }
+  | '\n' as c             { advance_line (Lexing.lexeme_start lexbuf);
+                            Buffer.add_char buf c;
+                            string buf lexbuf }
   | eof                   { raise Unterminated_string }
   | _ as c                { Buffer.add_char buf c; string buf lexbuf }
 and escape buf = parse
@@ -103,6 +108,8 @@ and comment depth = parse
   | "*/"                  { if depth=0
                             then token lexbuf
                             else comment (depth-1) lexbuf }
+  | '\n'                  { advance_line (Lexing.lexeme_start lexbuf);
+                            comment depth lexbuf }
   | "/*"                  { comment (depth+1) lexbuf }
   | eof                   { raise Unterminated_comment }
   | _                     { comment depth lexbuf }
