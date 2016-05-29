@@ -6,5 +6,4 @@ let _ =
     Parsing.clear_parser();
     Semant.trans_prog absyn
   with Parsing.Parse_error ->
-    Error_msg.syntax_error()
-    
+    Error_msg.parse_error "syntax error"
