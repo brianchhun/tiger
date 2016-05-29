@@ -83,7 +83,7 @@ let check_unit = check_expty T.UNIT
 let checktydups tydecs =
   let rec loop seen = function
     | [] -> ()
-    | ({A.tydec_name; tydec_pos; _} as tydec) :: xs ->
+    | {A.tydec_name; tydec_pos; _} :: xs ->
        if List.mem tydec_name seen
        then Error_msg.error tydec_pos (Error_msg.Duplicate_type_declaration (S.name tydec_name));
        loop (tydec_name :: seen) xs in
@@ -92,7 +92,7 @@ let checktydups tydecs =
 let checkfundups fundecs =
   let rec loop seen = function
     | [] -> ()
-    | ({A.fundec_name; fundec_pos; _} as fundec) :: xs ->
+    | {A.fundec_name; fundec_pos; _} :: xs ->
        if List.mem fundec_name seen
        then Error_msg.error fundec_pos (Error_msg.Duplicate_function_declaration (S.name fundec_name));
        loop (fundec_name :: seen) xs in
@@ -106,16 +106,6 @@ let checkcomp lty rty pos =
     | T.ARRAY _, T.ARRAY _ -> ()
     | T.INT, T.INT -> ()
     | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty))
-			   
-       (*
-let rec check_cycle pos seen = function
-  | T.NAME (name, ty) ->
-     if List.mem name seen
-     then Error_msg.error pos Error_msg.Illegal_cycle_in_type_declaration
-     else (match !ty with
-	   | Some (T.NAME (name2, _) as namety2) -> check_cycle pos (name :: seen) namety2
-	   | _ -> ()) in
-	*)
 
 let rec trans_var venv tenv = function
   | A.SimpleVar (id, pos) ->
@@ -283,18 +273,25 @@ and trans_dec venv tenv = function
      let nametys = List.map (fun {A.tydec_name; _} ->
 		       T.NAME (tydec_name, ref None))
 			    tydecs in
-     let tenv' = List.fold_left (fun tenv (T.NAME (name, ty) as namety) ->
-		     S.enter name namety tenv)
+     let tenv' = List.fold_left (fun tenv namety ->
+		     match namety with
+		     | T.NAME (name, ty) as namety ->
+			S.enter name namety tenv
+		     | _ -> Error_msg.impossible "expected name type")
 				tenv
 				nametys in
      let actualtys = List.map (fun {A.tydec_ty; _ } ->
 			 trans_ty tenv' tydec_ty)
-		       tydecs in
-     List.iter2 (fun (T.NAME (name, ty)) actualty -> ty := Some actualty)
+			      tydecs in
+     List.iter2 (fun namety actualty ->
+	 match namety with
+	 | T.NAME (name, ty) ->
+	    ty := Some actualty
+	 | _ -> Error_msg.impossible "expected name type")
 		nametys
 		actualtys;
      checktydups tydecs;
-     (* checkcycle venv'; *)
+     (*     checkcycle tydecs; *)
      {venv; tenv=tenv'}
   | A.FunctionDec fundecs ->
      let header {A.fundec_name; fundec_params; fundec_result; _} =
