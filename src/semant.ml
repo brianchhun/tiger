@@ -1,6 +1,5 @@
 (*
    TODO:
-   check breaks in trans_exp
    prevent reassignment to for loop variable
 *)
 
@@ -13,49 +12,6 @@ type tenv = T.t S.table
 type expty = {exp: Translate.exp; ty: T.t}
 type decenv = {venv: venv; tenv: tenv}
 
-let check_break exp =
-  let rec check inside = function
-  | A.VarExp _ -> ()
-  | A.NilExp -> ()
-  | A.IntExp _ -> ()
-  | A.StringExp _ -> ()
-  | A.CallExp (func, args, pos) ->
-     List.iter (fun arg -> check inside arg) args
-  | A.OpExp (lexp, op, rexp, pos) ->
-     check inside lexp;
-     check inside rexp
-  | A.RecordExp (fields, tyid, pos) ->
-     List.iter (fun (field, exp, pos) -> check inside exp) fields
-  | A.SeqExp exps ->
-     List.iter (fun (exp, pos) -> check inside exp) exps
-  | A.AssignExp (id, exp, pos) ->
-     check inside exp
-  | A.IfExp (test, then', None, pos) ->
-     check inside test;
-     check inside then'
-  | A.IfExp (test, then', Some else', pos) ->
-     check inside test;
-     check inside then';
-     check inside else'                 
-  | A.WhileExp (test, body, pos) ->
-     check true body
-  | A.ForExp (var, escape, lo, hi, body, pos) ->
-     check true body
-  | A.BreakExp pos ->
-     if not inside
-     then Error_msg.error pos Error_msg.Illegal_break
-  | A.LetExp (decs, body, p) ->
-     List.iter (fun dec ->
-         match dec with
-         | A.FunctionDec fundecs ->
-            List.iter (fun {A.fundec_body; _} -> check inside fundec_body) fundecs
-         | A.VarDec {A.vardec_init; _} -> check inside vardec_init
-         | A.TypeDec _ -> ()) decs;
-     check inside body
-  | A.ArrayExp (tyid, size, init, pos) ->
-     check inside init in
-  check false exp
-                          
 let rec actual_ty = function
   | T.NAME (s, ty) ->
      (match !ty with
@@ -107,7 +63,7 @@ let checkcomp lty rty pos =
     | T.INT, T.INT -> ()
     | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty))
 
-let rec trans_var venv tenv = function
+let rec trans_var venv tenv breakable = function
   | A.SimpleVar (id, pos) ->
      (match S.look id venv with
       | Some Env.VarEntry ty ->
@@ -117,7 +73,7 @@ let rec trans_var venv tenv = function
 	 {exp=(); ty=T.INT}
      )
   | A.FieldVar (var, id, pos) ->
-     let {ty; _} = trans_var venv tenv var in
+     let {ty; _} = trans_var venv tenv breakable var in
      (match actual_ty ty with
       | T.RECORD (fields, unique) ->
 	 (try
@@ -132,20 +88,20 @@ let rec trans_var venv tenv = function
 	 Error_msg.error pos (Error_msg.Type_mismatch ("record", T.string_of_ty ty));
 	 {exp=(); ty=T.INT})
   | A.SubscriptVar (var, exp, pos) ->
-     let {ty; _} = trans_var venv tenv var in
+     let {ty; _} = trans_var venv tenv breakable var in
      (match actual_ty ty with
       | T.ARRAY (elemty, unique) ->
-	 check_int (trans_exp venv tenv exp) pos;
+	 check_int (trans_exp venv tenv breakable exp) pos;
 	 {exp=(); ty=elemty}
       | otherty ->
 	 Error_msg.error pos (Error_msg.Type_mismatch ("array", T.string_of_ty otherty));
 	 {exp=(); ty=T.INT})
 
-and trans_exp venv tenv exp =
+and trans_exp venv tenv breakable exp =
 
   let rec trexp = function
     | A.VarExp var ->
-       let {exp; ty} = trans_var venv tenv var in
+       let {exp; ty} = trans_var venv tenv breakable var in
        {exp; ty=actual_ty ty}
     | A.NilExp ->
        {exp=(); ty=T.NIL}
@@ -161,7 +117,8 @@ and trans_exp venv tenv exp =
            if numformals <> numactuals
 	   then Error_msg.error pos (Error_msg.Arity_mismatch (numformals, numactuals))
            else List.iter2 (fun formalty arg -> check_expty formalty (trexp arg) pos)
-			   formaltys args;
+			   formaltys
+			   args;
 	   {exp=(); ty=resultty}
 	| _ ->
 	   Error_msg.error pos (Error_msg.Undefined_function (S.name funcname));
@@ -203,7 +160,7 @@ and trans_exp venv tenv exp =
 		      {exp=(); ty=T.UNIT}
 		      exps
     | A.AssignExp (var, exp, pos) ->
-       let {ty; _} = trans_var venv tenv var in
+       let {ty; _} = trans_var venv tenv breakable var in
        check_expty ty (trexp exp) pos;
        {exp=(); ty=T.UNIT}
     | A.IfExp (test, then', None, pos) ->
@@ -218,24 +175,26 @@ and trans_exp venv tenv exp =
        {exp=(); ty=thenexpty.ty}
     | A.WhileExp (test, body, pos) ->
        check_int (trexp test) pos;
-       let bodyexpty = trexp body in
+       let bodyexpty = trans_exp venv tenv true body in
        check_unit bodyexpty pos;
        {exp=(); ty=T.UNIT}
     | A.ForExp (var, escape, loexp, hiexp, body, pos) ->
        check_int (trexp loexp) pos;
        check_int (trexp hiexp) pos;
        let venv' = S.enter var (Env.VarEntry T.INT) venv in
-       let bodyexpty = trans_exp venv' tenv body in
+       let bodyexpty = trans_exp venv' tenv true body in
        check_unit bodyexpty pos;
        {exp=(); ty=T.UNIT}
     | A.BreakExp pos ->
+       if not breakable
+       then Error_msg.error pos Error_msg.Illegal_break;
        {exp=(); ty=T.UNIT}
     | A.LetExp (decs, body, pos) ->
        let {venv=venv'; tenv=tenv'} = List.fold_left
-					(fun {venv; tenv} dec -> trans_dec venv tenv dec)
+					(fun {venv; tenv} dec -> trans_dec venv tenv breakable dec)
 					{venv; tenv}
 					decs in
-       trans_exp venv' tenv' body
+       trans_exp venv' tenv' breakable body
     | A.ArrayExp (arraytyid, sizeexp, initexp, pos) ->
        (match S.look arraytyid tenv with
 	| Some ty ->
@@ -253,17 +212,17 @@ and trans_exp venv tenv exp =
 
   in trexp exp
 	   
-and trans_dec venv tenv = function
+and trans_dec venv tenv breakable = function
   | A.VarDec {A.vardec_name; vardec_ty; vardec_init; vardec_pos} ->
      let venv' = match vardec_ty with
        | None ->
-	  let {ty; _} = trans_exp venv tenv vardec_init in
+	  let {ty; _} = trans_exp venv tenv breakable vardec_init in
 	  if ty = T.NIL then Error_msg.error vardec_pos Error_msg.Unconstrained_nil;
 	  S.enter vardec_name (Env.VarEntry ty) venv;
        | Some (tyid, typos) ->
 	  match S.look tyid tenv with
 	  | Some ty ->
-	     check_expty ty (trans_exp venv tenv vardec_init) vardec_pos;
+	     check_expty ty (trans_exp venv tenv breakable vardec_init) vardec_pos;
 	     S.enter vardec_name (Env.VarEntry ty) venv
 	  | None ->
 	     Error_msg.error typos (Error_msg.Undefined_type (S.name tyid));
@@ -319,7 +278,7 @@ and trans_dec venv tenv = function
 				      venv'
 				      fundec_params
 				      paramtys in
-	 let bodyexpty = trans_exp venv'' tenv fundec_body in
+	 let bodyexpty = trans_exp venv'' tenv breakable fundec_body in
 	 check_expty resultty bodyexpty fundec_pos)
 		headers
 		fundecs;
@@ -348,5 +307,4 @@ and trans_ty tenv = function
      T.ARRAY (elemty, ref ())
 
 let trans_prog exp =
-  ignore (trans_exp Env.base_venv Env.base_tenv exp);
-  ignore (check_break exp);
+  ignore (trans_exp Env.base_venv Env.base_tenv false exp)
