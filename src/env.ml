@@ -10,6 +10,7 @@ let base_tenv =
 let base_venv =
   Symbol.enter (Symbol.symbol "print") (FunEntry ([Types.STRING], Types.UNIT))
   @@ Symbol.enter (Symbol.symbol "flush") (FunEntry ([Types.UNIT], Types.UNIT))
+  @@ Symbol.enter (Symbol.symbol "getchar") (FunEntry ([Types.UNIT], Types.STRING))
   @@ Symbol.enter (Symbol.symbol "ord") (FunEntry ([Types.STRING], Types.INT))
   @@ Symbol.enter (Symbol.symbol "chr") (FunEntry ([Types.INT], Types.STRING))
   @@ Symbol.enter (Symbol.symbol "size") (FunEntry ([Types.STRING], Types.INT))

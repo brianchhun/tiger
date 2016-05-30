@@ -6,31 +6,31 @@ type venv = Env.enventry S.table
 type tenv = T.t S.table
 type expty = {exp: Translate.exp; ty: T.t}
 type decenv = {venv: venv; tenv: tenv}
-
-let rec actual_ty = function
-  | T.NAME (s, ty) ->
-     (match !ty with
-      | None -> Error_msg.impossible "name type without actual type"
-      | Some actual -> actual_ty actual)
-  | ty -> ty
-
-let check_expty ty {exp; ty=ty'} pos =
-  match actual_ty ty, ty' with
-  | (T.RECORD (_, unique1)), (T.RECORD (_, unique2)) ->
+	    
+let check_expty ty1 {exp; ty=ty2} pos =
+  match ty1, ty2 with
+  | T.RECORD (_, unique1), T.RECORD (_, unique2) ->
      if unique1 != unique2
      then Error_msg.error pos (Error_msg.Record_type_mismatch)
   | T.RECORD _, T.NIL -> ()
   | T.NIL , T.RECORD _ -> ()
-  | (T.ARRAY (_, unique1)), (T.ARRAY (_, unique2)) ->
+  | T.ARRAY (_, unique1), T.ARRAY (_, unique2) ->
      if unique1 != unique2
      then Error_msg.error pos (Error_msg.Array_type_mismatch)
-  | actual, ty' when actual <> ty' ->
-     Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty actual, T.string_of_ty ty'))
-  | _ -> ()
-
-let check_int = check_expty T.INT
-let check_unit = check_expty T.UNIT
-
+  | _ ->
+     if ty1 <> ty2
+     then Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty ty1, T.string_of_ty ty2))
+	   
+let checkint = check_expty T.INT
+let checkunit = check_expty T.UNIT
+			    
+let rec actual_ty = function
+  | T.NAME (id, ty) ->
+     (match !ty with
+      | None -> Error_msg.impossible "name type without actual type"
+      | Some actual -> actual_ty actual)
+  | ty -> ty
+	    
 let rec trans_var venv tenv breakable = function
   | A.SimpleVar (id, pos) ->
      (match S.look id venv with
@@ -42,13 +42,13 @@ let rec trans_var venv tenv breakable = function
      )
   | A.FieldVar (var, id, pos) ->
      let {ty; _} = trans_var venv tenv breakable var in
-     (match actual_ty ty with
+     (match ty with
       | T.RECORD (fields, unique) ->
 	 (try
 	    let (fieldname, fieldty) = List.find
 					 (fun (fieldname, fieldty) -> fieldname=id)
 					 fields in
-	    {exp=(); ty=fieldty}
+	    {exp=(); ty=actual_ty fieldty}
 	  with Not_found ->
 	    Error_msg.error pos (Error_msg.Undefined_record_field (S.name id));
 	    {exp=();ty=T.INT})
@@ -57,10 +57,10 @@ let rec trans_var venv tenv breakable = function
 	 {exp=(); ty=T.INT})
   | A.SubscriptVar (var, exp, pos) ->
      let {ty; _} = trans_var venv tenv breakable var in
-     (match actual_ty ty with
+     (match ty with
       | T.ARRAY (elemty, unique) ->
-	 check_int (trans_exp venv tenv breakable exp) pos;
-	 {exp=(); ty=elemty}
+	 checkint (trans_exp venv tenv breakable exp) pos;
+	 {exp=(); ty=actual_ty elemty}
       | otherty ->
 	 Error_msg.error pos (Error_msg.Type_mismatch ("array", T.string_of_ty otherty));
 	 {exp=(); ty=T.INT})
@@ -70,16 +70,16 @@ and trans_exp venv tenv breakable exp =
   let checkcomp lty rty pos =
     match lty, rty  with
     | T.RECORD _, T.RECORD _ -> ()
-    | T.RECORD _, T.NIL -> ()
-    | T.NIL, T.RECORD _ -> ()
-    | T.ARRAY _, T.ARRAY _ -> ()
-    | T.INT, T.INT -> ()
+    | T.RECORD _, T.NIL      -> ()
+    | T.NIL     , T.RECORD _ -> ()
+    | T.ARRAY _ , T.ARRAY _  -> ()
+    | T.INT     , T.INT      -> ()
     | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty)) in
 
   let rec trexp = function
     | A.VarExp var ->
        let {exp; ty} = trans_var venv tenv breakable var in
-       {exp; ty=actual_ty ty}
+       {exp; ty}
     | A.NilExp ->
        {exp=(); ty=T.NIL}
     | A.IntExp i ->
@@ -101,18 +101,18 @@ and trans_exp venv tenv breakable exp =
 	   Error_msg.error pos (Error_msg.Undefined_function (S.name funcname));
 	   {exp=(); ty=T.INT})
     | A.OpExp (l, A.EqOp, r, pos) ->
-       let {ty=lty; _} as expty1 = trexp l in
-       let {ty=rty; _} as expty2 = trexp r in
+       let {ty=lty; _} = trexp l in
+       let {ty=rty; _} = trexp r in
        checkcomp lty rty pos;
        {exp=(); ty=T.INT}
     | A.OpExp (l, A.NeqOp, r, pos) ->
-       let {ty=lty; _} as expty1 = trexp l in
-       let {ty=rty; _} as expty2 = trexp r in
+       let {ty=lty; _} = trexp l in
+       let {ty=rty; _} = trexp r in
        checkcomp lty rty pos;
        {exp=(); ty=T.INT}
     | A.OpExp (l, op, r, pos) ->
-       check_int (trexp l) pos;
-       check_int (trexp r) pos;
+       checkint (trexp l) pos;
+       checkint (trexp r) pos;
        {exp=(); ty=T.INT}
     | A.RecordExp (fields, recordtyid, pos) ->
        (match S.look recordtyid tenv with
@@ -122,7 +122,7 @@ and trans_exp venv tenv breakable exp =
 	       List.iter2 (fun (fieldname1, ty) (fieldname2, exp, pos) ->
 		   if fieldname1 <> fieldname2
 		   then Error_msg.error pos (Error_msg.Record_field_mismatch (S.name fieldname1, S.name fieldname2));
-		   check_expty ty (trexp exp) pos)
+		   check_expty (actual_ty ty) (trexp exp) pos)
 			  fieldtys
 			  fields;
 	       {exp=(); ty=recordty}
@@ -141,26 +141,26 @@ and trans_exp venv tenv breakable exp =
        check_expty ty (trexp exp) pos;
        {exp=(); ty=T.UNIT}
     | A.IfExp (test, then', None, pos) ->
-       check_int (trexp test) pos;
-       check_unit (trexp then') pos;
+       checkint (trexp test) pos;
+       checkunit (trexp then') pos;
        {exp=(); ty=T.UNIT}
     | A.IfExp (test, then', Some else', pos) ->
-       check_int (trexp test) pos;
+       checkint (trexp test) pos;
        let thenexpty = trexp then' in
        let elseexpty = trexp else' in
        check_expty thenexpty.ty elseexpty pos;
        {exp=(); ty=thenexpty.ty}
     | A.WhileExp (test, body, pos) ->
-       check_int (trexp test) pos;
+       checkint (trexp test) pos;
        let bodyexpty = trans_exp venv tenv true body in
-       check_unit bodyexpty pos;
+       checkunit bodyexpty pos;
        {exp=(); ty=T.UNIT}
     | A.ForExp (var, escape, loexp, hiexp, body, pos) ->
-       check_int (trexp loexp) pos;
-       check_int (trexp hiexp) pos;
+       checkint (trexp loexp) pos;
+       checkint (trexp hiexp) pos;
        let venv' = S.enter var (Env.VarEntry T.INT) venv in
        let bodyexpty = trans_exp venv' tenv true body in
-       check_unit bodyexpty pos;
+       checkunit bodyexpty pos;
        {exp=(); ty=T.UNIT}
     | A.BreakExp pos ->
        if not breakable
@@ -177,8 +177,8 @@ and trans_exp venv tenv breakable exp =
 	| Some ty ->
 	   (match actual_ty ty with
 	    | T.ARRAY (elemty, unique) as arrayty ->
-	       check_int (trexp sizeexp) pos;
-	       check_expty elemty (trexp initexp) pos;
+	       checkint (trexp sizeexp) pos;
+	       check_expty (actual_ty elemty) (trexp initexp) pos;
 	       {exp=(); ty=arrayty}
 	    | otherty ->
 	       Error_msg.error pos (Error_msg.Type_mismatch ("array", T.string_of_ty otherty));
@@ -199,8 +199,9 @@ and trans_dec venv tenv breakable = function
        | Some (tyid, typos) ->
 	  match S.look tyid tenv with
 	  | Some ty ->
-	     check_expty ty (trans_exp venv tenv breakable vardec_init) vardec_pos;
-	     S.enter vardec_name (Env.VarEntry ty) venv
+	     let actualty = actual_ty ty in
+	     check_expty actualty (trans_exp venv tenv breakable vardec_init) vardec_pos;
+	     S.enter vardec_name (Env.VarEntry actualty) venv
 	  | None ->
 	     Error_msg.error typos (Error_msg.Undefined_type (S.name tyid));
 	     S.enter vardec_name (Env.VarEntry T.INT) venv in
@@ -269,14 +270,14 @@ and trans_dec venv tenv breakable = function
 	 match S.look paramtyid tenv with
 	 | None -> Error_msg.error paramtypos (Error_msg.Undefined_type (S.name paramtyid));
 		   T.INT
-	 | Some paramty -> paramty in
+	 | Some paramty -> actual_ty paramty in
        let resultty = match fundec_result with
 	 | None -> T.UNIT
 	 | Some (resulttyid, resulttypos) ->
 	    match S.look resulttyid tenv with
 	    | None -> Error_msg.error resulttypos (Error_msg.Undefined_type (S.name resulttyid));
 		      T.INT
-	    | Some resultty -> resultty in
+	    | Some resultty -> actual_ty resultty in
        (fundec_name, List.map trparam fundec_params, resultty) in
      let headers = List.map header fundecs in
      let venv' = List.fold_left (fun venv (name, paramtys, resultty) ->
