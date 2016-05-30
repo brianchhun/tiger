@@ -9,17 +9,16 @@ type decenv = {venv: venv; tenv: tenv}
 	    
 let check_expty ty1 {exp; ty=ty2} pos =
   match ty1, ty2 with
-  | T.RECORD (_, unique1), T.RECORD (_, unique2) ->
+  | T.RECORD _ , T.NIL      -> ()
+  | T.NIL      , T.RECORD _ -> ()
+  | T.RECORD (_, unique1) , T.RECORD (_, unique2) ->
      if unique1 != unique2
      then Error_msg.error pos (Error_msg.Record_type_mismatch)
-  | T.RECORD _, T.NIL -> ()
-  | T.NIL , T.RECORD _ -> ()
-  | T.ARRAY (_, unique1), T.ARRAY (_, unique2) ->
+  | T.ARRAY (_, unique1)  , T.ARRAY (_, unique2)  ->
      if unique1 != unique2
      then Error_msg.error pos (Error_msg.Array_type_mismatch)
-  | _ ->
-     if ty1 <> ty2
-     then Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty ty1, T.string_of_ty ty2))
+  | _ -> if ty1 <> ty2
+	 then Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty ty1, T.string_of_ty ty2))
 	   
 let checkint = check_expty T.INT
 let checkunit = check_expty T.UNIT
@@ -69,11 +68,12 @@ and trans_exp venv tenv breakable exp =
 
   let checkcomp lty rty pos =
     match lty, rty  with
-    | T.RECORD _, T.RECORD _ -> ()
     | T.RECORD _, T.NIL      -> ()
     | T.NIL     , T.RECORD _ -> ()
+    | T.RECORD _, T.RECORD _ -> ()
     | T.ARRAY _ , T.ARRAY _  -> ()
     | T.INT     , T.INT      -> ()
+    | T.STRING  , T.STRING   -> ()
     | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty)) in
 
   let rec trexp = function
