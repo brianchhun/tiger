@@ -16,13 +16,13 @@ let rec actual_ty = function
 
 let check_expty ty {exp; ty=ty'} pos =
   match actual_ty ty, ty' with
-  | (T.RECORD (_, uniq1)), (T.RECORD (_, uniq2)) ->
-     if uniq1 != uniq2
+  | (T.RECORD (_, unique1)), (T.RECORD (_, unique2)) ->
+     if unique1 != unique2
      then Error_msg.error pos (Error_msg.Record_type_mismatch)
   | T.RECORD _, T.NIL -> ()
   | T.NIL , T.RECORD _ -> ()
-  | (T.ARRAY (_, uniq1)), (T.ARRAY (_, uniq2)) ->
-     if uniq1 != uniq2
+  | (T.ARRAY (_, unique1)), (T.ARRAY (_, unique2)) ->
+     if unique1 != unique2
      then Error_msg.error pos (Error_msg.Array_type_mismatch)
   | actual, ty' when actual <> ty' ->
      Error_msg.error pos (Error_msg.Type_mismatch (T.string_of_ty actual, T.string_of_ty ty'))
@@ -75,7 +75,7 @@ and trans_exp venv tenv breakable exp =
     | T.ARRAY _, T.ARRAY _ -> ()
     | T.INT, T.INT -> ()
     | _ -> Error_msg.error pos (Error_msg.Illegal_comparison (T.string_of_ty lty, T.string_of_ty rty)) in
-  
+
   let rec trexp = function
     | A.VarExp var ->
        let {exp; ty} = trans_var venv tenv breakable var in
@@ -89,11 +89,11 @@ and trans_exp venv tenv breakable exp =
     | A.CallExp (funcname, args, pos) ->
        (match S.look funcname venv with
 	| Some Env.FunEntry (formaltys, resultty) ->
-           let numformals = List.length formaltys in
-           let numactuals = List.length args in
-           if numformals <> numactuals
+	   let numformals = List.length formaltys in
+	   let numactuals = List.length args in
+	   if numformals <> numactuals
 	   then Error_msg.error pos (Error_msg.Arity_mismatch (numformals, numactuals))
-           else List.iter2 (fun formalty arg -> check_expty formalty (trexp arg) pos)
+	   else List.iter2 (fun formalty arg -> check_expty formalty (trexp arg) pos)
 			   formaltys
 			   args;
 	   {exp=(); ty=resultty}
@@ -104,7 +104,7 @@ and trans_exp venv tenv breakable exp =
        let {ty=lty; _} as expty1 = trexp l in
        let {ty=rty; _} as expty2 = trexp r in
        checkcomp lty rty pos;
-       {exp=(); ty=T.INT}    
+       {exp=(); ty=T.INT}
     | A.OpExp (l, A.NeqOp, r, pos) ->
        let {ty=lty; _} as expty1 = trexp l in
        let {ty=rty; _} as expty2 = trexp r in
@@ -120,7 +120,7 @@ and trans_exp venv tenv breakable exp =
 	   (match actual_ty ty with
 	    | T.RECORD (fieldtys, unique) as recordty ->
 	       List.iter2 (fun (fieldname1, ty) (fieldname2, exp, pos) ->
-		   if fieldname1 <> fieldname2 
+		   if fieldname1 <> fieldname2
 		   then Error_msg.error pos (Error_msg.Record_field_mismatch (S.name fieldname1, S.name fieldname2));
 		   check_expty ty (trexp exp) pos)
 			  fieldtys
@@ -188,7 +188,7 @@ and trans_exp venv tenv breakable exp =
 	   {exp=(); ty=T.ARRAY (T.INT, ref ())})
 
   in trexp exp
-	   
+
 and trans_dec venv tenv breakable = function
   | A.VarDec {A.vardec_name; vardec_ty; vardec_init; vardec_pos} ->
      let venv' = match vardec_ty with
@@ -217,25 +217,43 @@ and trans_dec venv tenv breakable = function
      let nametys = List.map (fun {A.tydec_name; _} ->
 		       T.NAME (tydec_name, ref None))
 			    tydecs in
-     let tenv' = List.fold_left (fun tenv namety ->
-		     match namety with
-		     | T.NAME (name, ty) as namety ->
-			S.enter name namety tenv
-		     | _ -> Error_msg.impossible "expected name type")
+     let tenv' = List.fold_left
+		   (fun tenv namety -> match namety with
+				       | T.NAME (name, ty) as namety ->
+					  S.enter name namety tenv
+				       | _ -> Error_msg.impossible "expected name type")
 				tenv
 				nametys in
      let actualtys = List.map (fun {A.tydec_ty; _ } ->
 			 trans_ty tenv' tydec_ty)
 			      tydecs in
-     checkdups();
-     List.iter2 (fun namety actualty ->
-	 match namety with
-	 | T.NAME (name, ty) ->
-	    ty := Some actualty
-	 | _ -> Error_msg.impossible "expected name type")
+     List.iter2 (fun namety actualty -> match namety with
+					| T.NAME (name, ty) ->
+					   ty := Some actualty
+					| _ -> Error_msg.impossible "expected name type")
 		nametys
 		actualtys;
-     (*     checkcycle tydecs; *)
+     let checkcycles() =
+       let edges = List.map (fun {A.tydec_name; tydec_ty; _} ->
+		       match tydec_ty with
+		       | A.NameTy (tyid, pos) ->
+			  (match S.look tyid tenv' with
+			    | Some (T.NAME (id, ty)) -> (tydec_name, Some id)
+			    | _ -> (tydec_name, None))
+		       | _ -> (tydec_name, None))
+			    tydecs in
+       List.iter
+	 (fun {A.tydec_name; tydec_pos; _} ->
+	   let rec visit seen = function
+	     | None -> ()
+	     | Some v ->
+		if List.mem v seen
+		then Error_msg.error tydec_pos Error_msg.Illegal_cycle_in_type_declaration
+		else visit (v :: seen) (List.assoc v edges) in
+	   visit [] (Some tydec_name))
+	 tydecs in
+     checkdups();
+     checkcycles();
      {venv; tenv=tenv'}
   | A.FunctionDec fundecs ->
      let checkdups() =
@@ -265,7 +283,6 @@ and trans_dec venv tenv breakable = function
 		     S.enter name (Env.FunEntry (paramtys, resultty)) venv)
 				venv
 				headers in
-     checkdups();
      List.iter2 (fun (name, paramtys, resultty) {A.fundec_body; A.fundec_params; fundec_pos; _} ->
 	 let venv'' = List.fold_left2 (fun venv {A.name=paramname; _} paramty ->
 			  S.enter paramname (Env.VarEntry paramty) venv)
@@ -276,8 +293,9 @@ and trans_dec venv tenv breakable = function
 	 check_expty resultty bodyexpty fundec_pos)
 		headers
 		fundecs;
+     checkdups();
      {venv=venv'; tenv}
-       
+
 and trans_ty tenv = function
   | A.NameTy (ty, pos) ->
      (match S.look ty tenv with

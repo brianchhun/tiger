@@ -1,0 +1,16 @@
+/* mutually recursive types thet pass through record or array */
+let 
+type a=c
+type b=a
+type c=d
+type d={a: a}
+
+var x : int := 1
+
+type x=y
+type y=array of z
+type z=x
+
+in
+ ""
+end
