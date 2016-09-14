@@ -1,0 +1,8 @@
+## todo
+
+### type-checker
+- prevent assignment to index variable
+
+### semant
+- implement FindEscape
+- handle functions with more than k formal parameters

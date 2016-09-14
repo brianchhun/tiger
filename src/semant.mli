@@ -1,1 +1,1 @@
-val trans_prog : Absyn.exp -> unit
+val trans_prog : Absyn.exp -> Translate.frag list

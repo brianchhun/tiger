@@ -7,18 +7,17 @@ let symbol name =
     (name, Hashtbl.find hash_table name)
   with
     Not_found -> let i = !nextsym
-		 in nextsym := i+1;
-		    Hashtbl.add hash_table name i;
-		    (name, i)
+      in nextsym := i+1;
+        Hashtbl.add hash_table name i;
+        (name, i)
 
-let name = function
-  | (s,i) -> s
+let name (s, _) = s
 
 module Table =
   Map.Make(struct
-	    type symbol = t
-	    type t = symbol
-	    let compare = compare end)
+    type symbol = t
+    type t = symbol
+    let compare = compare end)
 type 'a table = 'a Table.t
 let empty = Table.empty
 let enter = Table.add
