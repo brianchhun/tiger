@@ -467,8 +467,10 @@ let trans_prog exp =
   let level = Translate.new_level Translate.outermost (Temp.new_label ()) [] in
   let {exp; _} = trans_exp Env.base_venv Env.base_tenv None level exp in
   let frags = Translate.get_result () in
-(*
+    print_newline ();
+    Translate.print_tree_canon exp;
+    print_newline ();
     Translate.print_tree exp;
+    print_newline ();
     Translate.print_frags frags;
-*)
     frags

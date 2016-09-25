@@ -310,6 +310,7 @@ let proc_entry_exit level body =
           frags := !frags @ [Frame.PROC (body'', f)]
 
 let print_tree t = Printtree.printtree (stdout, un_nx t)
+let print_tree_canon t = List.iter (fun t -> Printtree.printtree (stdout, t)) (Canon.linearize (un_nx t))
 let print_frags l =
   let print_frag =  function
     | Frame.STRING (l, s) ->

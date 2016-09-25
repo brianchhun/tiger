@@ -22,3 +22,15 @@ and binop =
 and relop =
     EQ | NE | LT | GT | LE | GE
   | ULT | ULE | UGT | UGE
+
+let not_relop = function
+    EQ -> NE
+  | NE -> EQ
+  | LT -> GE
+  | GT -> LE
+  | LE -> GT
+  | GE -> LT
+  | ULT -> UGE
+  | ULE -> UGT
+  | UGT -> ULE
+  | UGE -> ULT

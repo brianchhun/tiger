@@ -58,4 +58,5 @@ val proc_entry_exit : level -> exp -> unit
 val get_result : unit -> frag list
 
 val print_tree : exp -> unit
+val print_tree_canon : exp -> unit
 val print_frags : frag list -> unit
