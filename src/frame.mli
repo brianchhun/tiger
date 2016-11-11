@@ -20,3 +20,5 @@ val exp : access -> Tree.exp -> Tree.exp
 val external_call : string -> Tree.exp list -> Tree.exp
 
 val proc_entry_exit1 : frame -> Tree.stm -> Tree.stm
+
+val string : Temp.label -> string -> string

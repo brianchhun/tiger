@@ -192,6 +192,6 @@ and get_next table = function
         | _ -> get_next table rest
       end
 
-let trace_schedule blocks donelab =
+let trace_schedule (blocks, donelab) =
   let table = List.fold_right enter_block blocks Symbol.empty in
     get_next table blocks @ [T.LABEL donelab]

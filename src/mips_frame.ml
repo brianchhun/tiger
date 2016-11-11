@@ -45,3 +45,6 @@ let external_call name args =
 
 (* TODO: proc_entry_exit1 *)
 let proc_entry_exit1 frame body = body
+
+(* TODO *)
+let string label s = ""

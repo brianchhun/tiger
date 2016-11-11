@@ -1,7 +1,7 @@
 type level
 type access
 type exp
-type frag
+type frag = Frame.frag
 
 val outermost : level
 val new_level : level -> Temp.label -> bool list -> level
