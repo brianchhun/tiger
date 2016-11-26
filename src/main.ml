@@ -1,11 +1,23 @@
+let string_of_temp t =
+  try
+    Temp.Table.find t Frame.temp_map
+  with
+    Not_found -> Temp.string_of_temp t
+                   
 let emitproc = function
     Frame.PROC (body, frame) ->
       let stms = body |>
                  Canon.linearize |>
                  Canon.basic_blocks |>
                  Canon.trace_schedule in
-      let instrs = List.concat (List.map (Codegen.codegen frame) stms) in
-        List.iter (fun i -> print_string (Assem.format (Temp.string_of_temp) i)) instrs
+      let (prologue, instrs, epilogue) = List.concat (List.map (Codegen.codegen frame) stms) |>
+                                       Frame.proc_entry_exit2 frame |>
+                                       Frame.proc_entry_exit3 frame in
+        print_string prologue;
+        List.iter (fun i -> print_string (Assem.format string_of_temp i)) instrs;
+        print_string epilogue
+
+
   | Frame.STRING (label, s) ->
       print_string (Frame.string label s)
 

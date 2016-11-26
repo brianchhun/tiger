@@ -14,3 +14,9 @@ let new_label () =
     l
 let named_label = Symbol.symbol
 let string_of_label = Symbol.name
+
+module Table = Map.Make(
+  struct
+    type t = temp
+    let compare = compare
+  end)

@@ -1,13 +1,16 @@
-.PHONY: clean testcases
+OCB_FLAGS = -lib str -I src
+OCB = ocamlbuild $(OCB_FLAGS)
 
-main.native:
-	ocamlbuild -Is src main.native
-
-test:
-	ocamlbuild -package oUnit -Is src lexer_test.native
-
-testcases: main.native
-	testcases/runtests.sh main.native
+native:
+	$(OCB) main.native
 
 clean:
-	ocamlbuild -clean
+	$(OCB) -clean
+
+test:	native
+	$(OCB) -package oUnit lexer_test.native
+
+testcases: native
+	testcases/runtests.sh main.native
+
+.PHONY: native clean test testcases

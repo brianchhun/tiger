@@ -17,7 +17,8 @@ module Table =
   Map.Make(struct
     type symbol = t
     type t = symbol
-    let compare = compare end)
+    let compare = compare
+  end)
 type 'a table = 'a Table.t
 let empty = Table.empty
 let enter = Table.add

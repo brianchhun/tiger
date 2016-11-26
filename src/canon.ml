@@ -162,7 +162,7 @@ let rec trace table (T.LABEL lab :: _ as b) rest =
       most, T.JUMP (T.NAME lab, _) ->
         begin
           match Symbol.look lab table with
-            Some b' when b' <> [] ->
+            Some (_ :: _ as b') ->
               most @ trace table b' rest
           | _ ->
               b @ get_next table rest
@@ -170,9 +170,9 @@ let rec trace table (T.LABEL lab :: _ as b) rest =
     | most, T.CJUMP (op, x, y, t, f) ->
         begin
           match Symbol.look t table, Symbol.look f table with
-            _, Some b' when b' <> [] ->
+            _, Some (_ :: _ as b') ->
               b @ trace table b' rest
-          | Some b', _ when b' <> [] ->
+          | Some (_ :: _ as b'), _ ->
               most @ [T.CJUMP (T.not_relop op, x, y, f, t)] @ trace table b' rest
           | _ ->
               let f' = Temp.new_label () in
@@ -188,7 +188,7 @@ and get_next table = function
   | (T.LABEL lab :: _ as b) :: rest ->
       begin
         match Symbol.look lab table with
-          Some _ -> trace table b rest
+          Some (_ :: _) -> trace table b rest
         | _ -> get_next table rest
       end
 

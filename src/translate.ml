@@ -91,7 +91,7 @@ let simple_var (level, access) level' =
         let fp' = Frame.exp (List.hd (Frame.formals frame)) fp in
           find_fp level parent fp'
     | _ -> raise (Failure "find_fp") in
-  let fp = find_fp level level' Frame.fp in
+  let fp = find_fp level level' (T.TEMP Frame.fp) in
     Ex (Frame.exp access fp)
 
 let field_var r i =
@@ -291,7 +291,7 @@ let call_exp flevel level label args =
       | Outermost ->
           raise (Failure "find_sl") in
 
-  let sl = if flevel = Outermost then T.CONST 0 else find_sl level Frame.fp in
+  let sl = if flevel = Outermost then T.CONST 0 else find_sl level (T.TEMP Frame.fp) in
     Ex (T.CALL (T.NAME label, sl :: List.map un_ex args))
 
 let assign_exp var exp =
