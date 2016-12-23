@@ -4,8 +4,9 @@ type access =
 
 type frame =
   {name: Temp.label;
-   mutable formals: access list;
-   mutable allocated: int}
+   formals: access list;
+   mutable allocated: int;
+   viewshift: Tree.stm}
 
 type frag =
     STRING of Temp.label * string
@@ -100,19 +101,40 @@ let temp_map =
 
 let alloc_local ({allocated; _} as frame) escape =
   if escape then
-    let a = InFrame (-allocated * word_size) in
-      frame.formals <- frame.formals @ [a];
+    let access = InFrame (-allocated * word_size) in
       frame.allocated <- frame.allocated + 1;
-      a
+      access
   else
-    let a = InReg (Temp.new_temp ()) in
-      frame.formals <- frame.formals @ [a];
-      a
+    InReg (Temp.new_temp ())
 
-let new_frame name escapes =
-  let f = {name; formals = []; allocated = 0} in
-    List.iter (fun e -> ignore (alloc_local f e)) escapes;
-    f
+let new_frame name formals =
+  let rec seq = function
+    [] -> raise (Failure "seq")
+    | [e] -> e
+    | h::t -> Tree.SEQ (h, seq t) in
+  let rec alloc_formals i allocated viewshift accesses = function
+      [] -> (allocated, seq (List.rev viewshift), List.rev accesses)
+    | formal :: formals ->
+        let incoming =
+            if i < List.length argregs then
+              Tree.TEMP (List.nth argregs i)
+            else
+              let offset = (i - List.length argregs + 1) * word_size in
+                Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST offset, Tree.TEMP fp)) in
+          if formal then
+            let offset = -allocated * word_size in
+            let access = InFrame offset in
+            let instr =
+              Tree.MOVE (Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST offset, Tree.TEMP fp)),
+                         incoming) in
+              alloc_formals (i + 1) (allocated + 1) (instr :: viewshift) (access :: accesses) formals
+          else
+            let temp = Temp.new_temp () in
+            let access = InReg temp in
+            let instr = Tree.MOVE (Tree.TEMP temp, incoming) in
+              alloc_formals (i + 1) allocated (instr :: viewshift) (access :: accesses) formals in
+  let (allocated, viewshift, formals) = alloc_formals 0 0 [] [] formals in
+    {name; allocated; viewshift; formals}
 
 let name {name; _} = name
 let formals {formals; _} = formals
@@ -128,7 +150,8 @@ let external_call name args =
   Tree.CALL (Tree.NAME (Temp.named_label name), args)
 
 (* TODO: proc_entry_exit1 *)
-let proc_entry_exit1 frame body = body
+let proc_entry_exit1 {viewshift; _} body =
+  Tree.SEQ (viewshift, body)
 
 let proc_entry_exit2 frame body =
   body @ [Assem.OPER {Assem.

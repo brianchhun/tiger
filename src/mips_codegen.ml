@@ -10,22 +10,25 @@ let codegen frame stm =
 
   let rec munch_args i = function
       [] -> []
-    | arg :: args ->
+    | arg :: args when i < List.length Frame.argregs ->
         let temp = munch_exp arg in
-          begin
-            if i < List.length Frame.argregs then
-              let argreg = List.nth Frame.argregs i in
-                emit (A.OPER {
-                    A.assem = "move 'd0, 's0\n";
-                    src = [temp]; dst = [argreg]; jump = None})
-            else
-              let offset = Frame.word_size * (i - List.length Frame.argregs) in
-                emit (A.OPER {
-                    A.assem = "sw 's0, " ^ string_of_int offset ^ "('s1)\n";
-                    src = [temp; Frame.sp]; dst = []; jump = None})
-          end;
+        let argreg = List.nth Frame.argregs i in
+          emit (A.OPER {
+              A.assem = "move 'd0, 's0\n";
+              src = [temp]; dst = [argreg]; jump = None});
           temp :: munch_args (i + 1) args
-  
+    | args ->
+        emit (A.OPER {
+            A.assem = "subu 's0, 's0, " ^ string_of_int (Frame.word_size * List.length args) ^"\n";
+            src = [Frame.sp]; dst = []; jump = None});
+        List.mapi (fun i arg ->
+            let temp = munch_exp arg in
+              emit (A.OPER {
+                  A.assem = "sw 's0, " ^ string_of_int (Frame.word_size * i) ^ "('s1)\n";
+                  src = [temp; Frame.sp]; dst = []; jump = None});
+              temp)
+          args
+
   and munch_stm = function
       T.SEQ (a, b) -> munch_stm a; munch_stm b
     | T.MOVE (T.MEM (T.BINOP (T.PLUS, T.CONST i, e1)), e2) ->
