@@ -26,6 +26,7 @@ let _ =
     let lexbuf = Lexing.from_channel stdin in
     let absyn = Parser.program Lexer.token lexbuf in
       Parsing.clear_parser();
+      Find_escape.find_escape absyn;
       let frags = Semant.trans_prog absyn in
         List.iter emitproc frags
   with Parsing.Parse_error ->

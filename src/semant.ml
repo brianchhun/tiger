@@ -221,22 +221,22 @@ and trans_exp venv tenv break level exp =
         let lo_sym = Symbol.symbol "*lo*" in
         let hi_sym = Symbol.symbol "*hi*" in
         let decs = [A.VarDec {A.vardec_name = lo_sym;
-                              vardec_escape = ref true;
+                              vardec_escape = ref false;
                               vardec_ty = None;
                               vardec_init = lo;
                               vardec_pos = pos};
                     A.VarDec {A.vardec_name = hi_sym;
-                              vardec_escape = ref true;
+                              vardec_escape = ref false;
                               vardec_ty = None;
                               vardec_init = hi;
                               vardec_pos = pos};
                     A.VarDec {A.vardec_name = var;
-                              vardec_escape = ref true;
+                              vardec_escape = escape;
                               vardec_ty = None;
                               vardec_init = A.VarExp (A.SimpleVar (lo_sym, pos));
                               vardec_pos = pos};
                     A.VarDec {A.vardec_name = limit_sym;
-                              vardec_escape = ref true;
+                              vardec_escape = ref false;
                               vardec_ty = None;
                               vardec_init = A.VarExp (A.SimpleVar (hi_sym, pos));
                               vardec_pos = pos}] in
@@ -300,8 +300,8 @@ and trans_exp venv tenv break level exp =
   in trexp exp
 
 and trans_dec venv tenv break level = function
-  | A.VarDec {A.vardec_name; vardec_ty; vardec_init; vardec_pos} ->
-      let access = Translate.alloc_local level true in
+  | A.VarDec {A.vardec_name; vardec_ty; vardec_init; vardec_pos; vardec_escape} ->
+      let access = Translate.alloc_local level !vardec_escape in
       let {exp; ty} as expty = trans_exp venv tenv break level vardec_init in
       let venv' =
         match vardec_ty with
@@ -404,7 +404,8 @@ and trans_dec venv tenv break level = function
                   actual_ty resultty in
         let paramtys = List.map trparam fundec_params in
         let label = Temp.new_label () in
-        let level' = Translate.new_level level label (List.map (fun _ -> true) paramtys) in
+        let formal_escapes = List.map (fun {A.escape; _} -> !escape) fundec_params in
+        let level' = Translate.new_level level label formal_escapes in
           (fundec_name, paramtys, resultty, label, level') in
 
       let headers = List.map header fundecs in

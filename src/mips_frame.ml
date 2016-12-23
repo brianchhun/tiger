@@ -105,7 +105,9 @@ let alloc_local ({allocated; _} as frame) escape =
       frame.allocated <- frame.allocated + 1;
       a
   else
-    raise (Failure "alloc_local")
+    let a = InReg (Temp.new_temp ()) in
+      frame.formals <- frame.formals @ [a];
+      a
 
 let new_frame name escapes =
   let f = {name; formals = []; allocated = 0} in
