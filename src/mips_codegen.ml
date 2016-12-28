@@ -13,9 +13,10 @@ let codegen frame stm =
     | arg :: args when i < List.length Frame.argregs ->
         let temp = munch_exp arg in
         let argreg = List.nth Frame.argregs i in
-          emit (A.OPER {
+          emit (A.MOVE {
               A.assem = "move 'd0, 's0\n";
-              src = [temp]; dst = [argreg]; jump = None});
+              src = temp;
+              dst = argreg});
           temp :: munch_args (i + 1) args
     | args ->
         emit (A.OPER {
@@ -48,7 +49,7 @@ let codegen frame stm =
             A.assem = "sw 's1, ('s0)\n";
             src = [munch_exp e2; munch_exp e1]; dst = []; jump = None})
     | T.LABEL lab ->
-        emit (A.LABEL {assem = Temp.string_of_label lab ^ ":\n"; lab = lab})
+        emit (A.LABEL {A.assem = Temp.string_of_label lab ^ ":\n"; lab = lab})
     | T.EXP (T.CALL (f, args)) ->
         emit (A.OPER {
             A.assem = "jalr 's0\n";
@@ -61,15 +62,15 @@ let codegen frame stm =
             src = munch_exp f :: munch_args 0 args;
             dst = calldefs;
             jump =None});
-        emit (A.OPER {
+        emit (A.MOVE {
             A.assem = "move 'd0, 's0\n";
-            src = [Frame.rv];
-            dst = [t];
-            jump =None})
+            src = Frame.rv;
+            dst = t})
     | T.MOVE (T.TEMP t, e1) ->
-        emit (A.OPER {
+        emit (A.MOVE {
             A.assem = "move 'd0, 's0\n";
-            src = [munch_exp e1]; dst = [t]; jump = None})
+            src = munch_exp e1;
+            dst = t})
     | T.JUMP (e, labs) ->
         emit (A.OPER {
             A.assem = "jr 's0\n";
@@ -135,9 +136,9 @@ let codegen frame stm =
             assem = "div 'd0, 's0, 's1\n";
             src = [munch_exp e1; munch_exp e2]; dst = [r]; jump = None}))
     | T.CONST 0 ->
-        result (fun r -> emit (A.OPER {A.
+        result (fun r -> emit (A.MOVE {A.
                                         assem = "move 'd0, 's0\n";
-                                        src = [Frame.zero]; dst = [r]; jump = None}));
+                                        src = Frame.zero; dst = r}))
     | T.CONST i ->
         result (fun r -> emit (A.OPER {A.
             assem = "li 'd0, " ^ string_of_int i ^ "\n";
