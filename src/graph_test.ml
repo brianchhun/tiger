@@ -1,13 +1,12 @@
 open OUnit2
 
+let cmpnodes = List.for_all2 Graph.eq
+    
 let test1 test_ctxt =
   let g = Graph.new_graph () in
     Graph.new_node g;
     Graph.new_node g;
     assert_equal (List.length (Graph.nodes g)) 2
-
-let cmpnodes x y =
-  List.for_all2 (fun i j -> Graph.eq i j) x y
 
 let test2 test_ctxt =
   let g = Graph.new_graph () in

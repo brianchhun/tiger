@@ -1,7 +1,6 @@
 open OUnit2
 
-let cmpnodes x y =
-  List.for_all2 (fun i j -> Graph.eq i j) x y
+let cmpnodes = List.for_all2 Graph.eq
 
 let test1 test_ctxt =
   let t1 = Temp.new_temp () in
@@ -20,8 +19,7 @@ let test1 test_ctxt =
                  src = t1;
                  dst = t2}
   ] in
-  let ({Flow.control; def; use; ismove}, [n1; n2; n3]) =
-    Make_graph.instrs2graph instrs in
+  let ({Flow.control; def; use; ismove}, [n1; n2; n3]) = Make_graph.instrs2graph instrs in
     assert_equal 3 (List.length (Graph.nodes control));
     (* control graph edges *)
     assert_equal ~cmp:cmpnodes [] (Graph.pred n1);
@@ -56,8 +54,8 @@ let test2 test_ctxt =
     Assem.LABEL {Assem.
                   assem = "l12";
                   lab = Temp.named_label "l12"}] in
-    let ({Flow.control; def; use; ismove}, [n1; n2; n3]) =
-      Make_graph.instrs2graph instrs in
+  let ({Flow.control; def; use; ismove}, [n1; n2; n3]) =
+    Make_graph.instrs2graph instrs in
     (* control graph edges *)
     assert_equal ~cmp:cmpnodes [] (Graph.pred n1);
     assert_equal ~cmp:cmpnodes [n3] (Graph.succ n1);
