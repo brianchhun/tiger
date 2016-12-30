@@ -14,7 +14,7 @@ let emitproc = function
                                        Frame.proc_entry_exit2 frame |>
                                        Frame.proc_entry_exit3 frame in
         print_string prologue;
-        List.iter (fun i -> print_string (Assem.format string_of_temp i)) instrs;
+        List.iter (fun i -> print_endline (Assem.format string_of_temp i)) instrs;
         print_string epilogue
 
 

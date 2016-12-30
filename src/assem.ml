@@ -24,20 +24,23 @@ type instr = OPER of oper_instr
            | LABEL of label_instr
            | MOVE of move_instr
 
-let reg_regexp = Str.regexp "'\\([ds]\\)\\([0-9]+\\)"
+let placeholder_regexp = Str.regexp "'\\([dsj]\\)\\([0-9]+\\)"
 
-let format format_temp = function
-    OPER {assem; _} when assem = "" -> assem
-  | OPER {assem; dst; src; jump} ->
-      let s = Str.global_substitute reg_regexp
-          (fun s ->
-             let temps =
-               match Str.matched_group 1 s with "d" -> dst | "s" -> src in
-             let i = int_of_string (Str.matched_group 2 s) in
-               format_temp (List.nth temps i))
-          assem in
-        "\t" ^ s
-  | LABEL {assem; lab} ->
-      assem
-  | MOVE {assem; dst; src} ->
-      raise (Failure "not done yet")
+let format format_temp instr =
+  let fill_placeholders assem src dst jump =
+    Str.global_substitute placeholder_regexp
+      (fun placeholder ->
+         let kind = Str.matched_group 1 placeholder in
+         let i = int_of_string (Str.matched_group 2 placeholder) in
+           match kind with
+             "s" -> format_temp (List.nth src i)
+           | "d" -> format_temp (List.nth dst i)
+           | "j" -> Temp.string_of_label (List.nth jump i))
+      assem in
+    match instr with
+      OPER {assem; src; dst; jump} ->
+        "\t" ^ fill_placeholders assem src dst (Option.default [] jump)
+    | LABEL {assem; _} ->
+        assem
+    | MOVE {assem; src; dst} ->
+        "\t" ^ fill_placeholders assem [src] [dst] []

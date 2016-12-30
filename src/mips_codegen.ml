@@ -7,25 +7,22 @@ let codegen frame stm =
   let alist = ref [] in
   let emit instr = alist := instr :: !alist in
   let result f = let t = Temp.new_temp() in f t; t in
-
+  
   let rec munch_args i = function
       [] -> []
     | arg :: args when i < List.length Frame.argregs ->
         let temp = munch_exp arg in
         let argreg = List.nth Frame.argregs i in
           emit (A.MOVE {
-              A.assem = "move 'd0, 's0\n";
+              A.assem = "move 'd0, 's0";
               src = temp;
               dst = argreg});
           temp :: munch_args (i + 1) args
     | args ->
-        emit (A.OPER {
-            A.assem = "subu 's0, 's0, " ^ string_of_int (Frame.word_size * List.length args) ^"\n";
-            src = [Frame.sp]; dst = []; jump = None});
         List.mapi (fun i arg ->
             let temp = munch_exp arg in
               emit (A.OPER {
-                  A.assem = "sw 's0, " ^ string_of_int (Frame.word_size * i) ^ "('s1)\n";
+                  A.assem = "sw 's0, " ^ string_of_int (Frame.word_size * i) ^ "('s1)";
                   src = [temp; Frame.sp]; dst = []; jump = None});
               temp)
           args
@@ -34,50 +31,55 @@ let codegen frame stm =
       T.SEQ (a, b) -> munch_stm a; munch_stm b
     | T.MOVE (T.MEM (T.BINOP (T.PLUS, T.CONST i, e1)), e2) ->
         emit (A.OPER {
-            A.assem = "sw 's0, " ^ string_of_int i ^ "('s1)\n";
+            A.assem = "sw 's0, " ^ string_of_int i ^ "('s1)";
             src = [munch_exp e2; munch_exp e1]; dst = []; jump = None})
     | T.MOVE (T.MEM (T.BINOP (T.PLUS, e1, T.CONST i)), e2) ->
         emit (A.OPER {
-            A.assem = "sw 's0, " ^ string_of_int i ^ "('s1)\n";
+            A.assem = "sw 's0, " ^ string_of_int i ^ "('s1)";
             src = [munch_exp e2; munch_exp e1]; dst = []; jump = None})
     | T.MOVE (T.MEM (T.CONST i), e2) ->
         emit (A.OPER {
-            A.assem = "sw 's0, " ^ string_of_int i ^ "\n";
+            A.assem = "sw 's0, " ^ string_of_int i;
             src = [munch_exp e2]; dst = []; jump = None})
     | T.MOVE (T.MEM (e1), e2) ->
         emit (A.OPER {
-            A.assem = "sw 's1, ('s0)\n";
+            A.assem = "sw 's1, ('s0)";
             src = [munch_exp e2; munch_exp e1]; dst = []; jump = None})
     | T.LABEL lab ->
-        emit (A.LABEL {A.assem = Temp.string_of_label lab ^ ":\n"; lab = lab})
-    | T.EXP (T.CALL (f, args)) ->
+        emit (A.LABEL {A.assem = Temp.string_of_label lab ^ ":"; lab = lab})
+    | T.EXP (T.CALL (T.NAME lab, args)) ->
         emit (A.OPER {
-            A.assem = "jalr 's0\n";
-            src = munch_exp f :: munch_args 0 args;
+            A.assem = "jal " ^ Temp.string_of_label lab;
+            src = munch_args 0 args;
             dst = calldefs;
             jump =None})
-    | T.MOVE (T.TEMP t, T.CALL (f, args)) ->
+    | T.MOVE (T.TEMP t, T.CALL (T.NAME lab, args)) ->
         emit (A.OPER {
-            A.assem = "jalr 's0\n";
-            src = munch_exp f :: munch_args 0 args;
+            A.assem = "jal " ^ Temp.string_of_label lab;
+            src = munch_args 0 args;
             dst = calldefs;
             jump =None});
         emit (A.MOVE {
-            A.assem = "move 'd0, 's0\n";
+            A.assem = "move 'd0, 's0";
             src = Frame.rv;
             dst = t})
     | T.MOVE (T.TEMP t, e1) ->
         emit (A.MOVE {
-            A.assem = "move 'd0, 's0\n";
+            A.assem = "move 'd0, 's0";
             src = munch_exp e1;
             dst = t})
+    | T.JUMP (T.NAME lab, labs) when labs = [lab] ->
+        emit (A.OPER {
+            A.assem = "j 'j0";
+            src = []; dst = [];
+            jump = Some labs})
     | T.JUMP (e, labs) ->
         emit (A.OPER {
-            A.assem = "jr 's0\n";
+            A.assem = "jr 's0";
             src = [munch_exp e]; dst = [];
             jump = Some labs})
     | T.CJUMP (relop, e1, e2, truelab, falselab) ->
-        let op = function
+        let op2assem = function
             T.EQ -> "beq"
           | T.NE -> "bne"
           | T.LT -> "blt"
@@ -89,7 +91,7 @@ let codegen frame stm =
           | T.UGT -> "bgtu"
           | T.UGE -> "bgeu" in
           emit (A.OPER {
-              A.assem = op relop ^ " 's0, 's1, " ^ Temp.string_of_label truelab ^ "\n";
+              A.assem = op2assem relop ^ " 's0, 's1, 'j0";
               src = [munch_exp e1; munch_exp e2];
               dst = [];
               jump = Some [truelab; falselab]})
@@ -97,55 +99,55 @@ let codegen frame stm =
   and  munch_exp = function
       T.MEM (T.BINOP (T.PLUS, e1, T.CONST i)) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "lw 'd0, " ^ string_of_int i ^ "('s0)\n";
+            assem = "lw 'd0, " ^ string_of_int i ^ "('s0)";
             src = [munch_exp e1]; dst = [r]; jump = None}))
     | T.MEM (T.BINOP (T.PLUS, T.CONST i, e1)) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "lw 'd0, " ^ string_of_int i ^ "('s0)\n";
+            assem = "lw 'd0, " ^ string_of_int i ^ "('s0)";
             src = [munch_exp e1]; dst = [r]; jump = None}))
     | T.MEM (T.CONST i) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "lw 'd0, " ^ "string_of_int i ^\n";
+            assem = "lw 'd0, " ^ string_of_int i;
             src =[]; dst = [r]; jump = None}))
     | T.MEM (e1) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "lw 'd0, 's0\n";
+            assem = "lw 'd0, 's0";
             src = [munch_exp e1]; dst = [r]; jump = None}))
     | T.BINOP (T.PLUS, e1, T.CONST i) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "addi 'd0, 's0, " ^ string_of_int i ^ "\n";
+            assem = "addi 'd0, 's0, " ^ string_of_int i;
             src = [munch_exp e1]; dst = [r]; jump = None}))
     | T.BINOP (T.PLUS, T.CONST i, e1) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "addi 'd0, 's0, " ^ string_of_int i ^ "\n";
+            assem = "addi 'd0, 's0, " ^ string_of_int i;
             src = [munch_exp e1]; dst = [r]; jump = None}))
     | T.BINOP (T.PLUS, e1, e2) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "add 'd0, 's0, 's1\n";
+            assem = "add 'd0, 's0, 's1";
             src = [munch_exp e1; munch_exp e2]; dst = [r]; jump = None}))
     | T.BINOP (T.MINUS, e1, e2) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "sub 'd0, 's0, 's1\n";
+            assem = "sub 'd0, 's0, 's1";
             src = [munch_exp e1; munch_exp e2]; dst = [r]; jump = None}))
     | T.BINOP (T.MUL, e1, e2) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "mulo 'd0, 's0, 's1\n";
+            assem = "mulo 'd0, 's0, 's1";
             src = [munch_exp e1; munch_exp e2]; dst = [r]; jump = None}))
     | T.BINOP (T.DIV, e1, e2) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "div 'd0, 's0, 's1\n";
+            assem = "div 'd0, 's0, 's1";
             src = [munch_exp e1; munch_exp e2]; dst = [r]; jump = None}))
     | T.CONST 0 ->
         result (fun r -> emit (A.MOVE {A.
-                                        assem = "move 'd0, 's0\n";
+                                        assem = "move 'd0, 's0";
                                         src = Frame.zero; dst = r}))
     | T.CONST i ->
         result (fun r -> emit (A.OPER {A.
-            assem = "li 'd0, " ^ string_of_int i ^ "\n";
+            assem = "li 'd0, " ^ string_of_int i;
             src = []; dst = [r]; jump = None}))
     | T.NAME lab ->
         result (fun r -> emit (A.OPER {A.
-            assem = "la 'd0, " ^ Temp.string_of_label lab ^ "\n";
+            assem = "la 'd0, " ^ Temp.string_of_label lab;
             src = []; dst = [r]; jump = None}))
     | T.TEMP t -> t
       
