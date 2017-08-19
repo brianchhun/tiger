@@ -1,0 +1,9 @@
+let
+
+  function f(x:int, y:int, z:int, r:int): int =
+    let function g() :int = if 1=0 then x else 0
+	in g()+y+z+r
+	end
+
+in f(1,2,3,4)
+end

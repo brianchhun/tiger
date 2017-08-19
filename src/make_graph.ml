@@ -10,6 +10,8 @@ let instrs2graph instrs =
          | _ -> map)
       Symbol.empty
       instrs in
+  let label_node lab =
+    Option.get (Symbol.look lab label_map) in
   let mk_succ node succ =
     List.iter (Graph.mk_edge node) succ in
   let rec instrs2graph' = function
@@ -20,38 +22,35 @@ let instrs2graph instrs =
            use=Graph.Table.empty;
            ismove=Graph.Table.empty},
          [])
-    | instr :: instrs ->
+    | Assem.OPER {Assem.assem; src; dst; jump} :: instrs ->
+        let node = Graph.new_node control in
         let ({Flow.control; def; use; ismove}, nodes) = instrs2graph' instrs in
-          match instr with
-            Assem.OPER {Assem.assem; src; dst; jump} ->
-              let node = Graph.new_node control in
-              let succ = Option.map_default
-                  (List.map (fun lab -> Option.get (Symbol.look lab label_map)))
-                  (List.take 1 nodes)
-                  jump in
-                mk_succ node succ;
-                ({Flow.
-                   control;
-                   def=Graph.Table.add node dst def;
-                   use=Graph.Table.add node src use;
-                   ismove=Graph.Table.add node false ismove},
-                 node :: nodes)
-          | Assem.LABEL {Assem.assem; lab} ->
-              let node = Option.get (Symbol.look lab label_map) in
-                mk_succ node (List.take 1 nodes);
-                ({Flow.
-                   control;
-                   def=Graph.Table.add node [] def;
-                   use=Graph.Table.add node [] use;
-                   ismove=Graph.Table.add node false ismove},
-                 node :: nodes)
-          | Assem.MOVE {Assem.assem; src; dst} ->
-              let node = Graph.new_node control in
-                mk_succ node (List.take 1 nodes);
-                ({Flow.
-                   control;
-                   def=Graph.Table.add node [dst] def;
-                   use=Graph.Table.add node [src] use;
-                   ismove=Graph.Table.add node true ismove},
-                 node :: nodes) in
+        let succ = Option.map_default (List.map label_node) (List.take 1 nodes) jump in
+          mk_succ node succ;
+          ({Flow.
+             control;
+             def=Graph.Table.add node (List.sort dst) def;
+             use=Graph.Table.add node (List.sort src) use;
+             ismove=Graph.Table.add node false ismove},
+           node :: nodes)
+    | Assem.LABEL {Assem.assem; lab} :: instrs ->
+        let node = label_node lab in
+        let ({Flow.control; def; use; ismove}, nodes) = instrs2graph' instrs in
+          mk_succ node (List.take 1 nodes);
+          ({Flow.
+             control;
+             def=Graph.Table.add node [] def;
+             use=Graph.Table.add node [] use;
+             ismove=Graph.Table.add node false ismove},
+           node :: nodes)
+    | Assem.MOVE {Assem.assem; src; dst} :: instrs ->
+        let node = Graph.new_node control in
+        let ({Flow.control; def; use; ismove}, nodes) = instrs2graph' instrs in
+          mk_succ node (List.take 1 nodes);
+          ({Flow.
+             control;
+             def=Graph.Table.add node [dst] def;
+             use=Graph.Table.add node [src] use;
+             ismove=Graph.Table.add node true ismove},
+           node :: nodes) in
     instrs2graph' instrs

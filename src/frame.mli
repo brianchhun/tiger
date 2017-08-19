@@ -6,7 +6,8 @@ type frag =
   | PROC of Tree.stm * frame
             
 type register = string
-  
+
+val registers : register list
 val temp_map : register Temp.Table.t
 
 val specialregs : Temp.temp list
@@ -36,3 +37,5 @@ val proc_entry_exit2 : frame -> Assem.instr list -> Assem.instr list
 val proc_entry_exit3 : frame -> Assem.instr list -> string * Assem.instr list * string
     
 val string : Temp.label -> string -> string
+val string_of_temp : Temp.temp -> string
+val string_of_register : register -> string

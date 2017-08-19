@@ -1,7 +1,7 @@
 module A = Assem
 module T = Tree
 
-let calldefs = Frame.rv :: Frame.ra :: Frame.callersaves
+let calldefs = Frame.rv :: Frame.ra :: Frame.callersaves @ Frame.argregs
 
 let codegen frame stm =
   let alist = ref [] in
@@ -17,7 +17,7 @@ let codegen frame stm =
               A.assem = "move 'd0, 's0";
               src = temp;
               dst = argreg});
-          temp :: munch_args (i + 1) args
+          argreg :: munch_args (i + 1) args
     | args ->
         List.mapi (fun i arg ->
             let temp = munch_exp arg in
@@ -137,10 +137,6 @@ let codegen frame stm =
         result (fun r -> emit (A.OPER {A.
             assem = "div 'd0, 's0, 's1";
             src = [munch_exp e1; munch_exp e2]; dst = [r]; jump = None}))
-    | T.CONST 0 ->
-        result (fun r -> emit (A.MOVE {A.
-                                        assem = "move 'd0, 's0";
-                                        src = Frame.zero; dst = r}))
     | T.CONST i ->
         result (fun r -> emit (A.OPER {A.
             assem = "li 'd0, " ^ string_of_int i;

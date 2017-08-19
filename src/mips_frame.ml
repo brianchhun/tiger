@@ -5,54 +5,93 @@ type access =
 type frame =
   {name: Temp.label;
    formals: access list;
+   fpaccess: access;
    mutable allocated: int;
-   viewshift: Tree.stm}
+   viewshift: Tree.stm;
+   mutable max_outgoing: int}
 
 type frag =
     STRING of Temp.label * string
   | PROC of Tree.stm * frame
 
+let word_size = 4
+let min_frame_size = 24
+
 type register = string
 
-let word_size = 4
+let registers = [
+  "$fp";
+  "$sp";
+  "$v0";
+  "$ra";
+  "$zero";
+  "$gp";
+  "$v0";
+  "$v1";
+  "$at";
+  "$k0";
+  "$k1";
+  "$a0";
+  "$a1";
+  "$a2";
+  "$a3";
+  "$s0";
+  "$s1";
+  "$s2";
+  "$s3";
+  "$s4";
+  "$s5";
+  "$s6";
+  "$s7";
+  "$t0";
+  "$t1";
+  "$t2";
+  "$t3";
+  "$t4";
+  "$t5";
+  "$t6";
+  "$t7";
+  "$t8";
+  "$t9"
+]
 
-let fp = Temp.new_temp ()
-let sp = Temp.new_temp ()
-let ra = Temp.new_temp ()
-let zero = Temp.new_temp ()
-let gp = Temp.new_temp ()
-let at = Temp.new_temp ()
-let v0 = Temp.new_temp ()
-let v1 = Temp.new_temp ()
-let k0 = Temp.new_temp ()
-let k1 = Temp.new_temp ()
-let a0 = Temp.new_temp ()
-let a1 = Temp.new_temp ()
-let a2 = Temp.new_temp ()
-let a3 = Temp.new_temp ()
-let s0 = Temp.new_temp ()
-let s1 = Temp.new_temp ()
-let s2 = Temp.new_temp ()
-let s3 = Temp.new_temp ()
-let s4 = Temp.new_temp ()
-let s5 = Temp.new_temp ()
-let s6 = Temp.new_temp ()
-let s7 = Temp.new_temp ()
-let t0 = Temp.new_temp ()
-let t1 = Temp.new_temp ()
-let t2 = Temp.new_temp ()
-let t3 = Temp.new_temp ()
-let t4 = Temp.new_temp ()
-let t5 = Temp.new_temp ()
-let t6 = Temp.new_temp ()
-let t7 = Temp.new_temp ()
-let t8 = Temp.new_temp ()
-let t9 = Temp.new_temp ()
+let zero = Temp.new_temp () (* always 0 *)
+let gp = Temp.new_temp ()   (* global pointer *)
+let at = Temp.new_temp ()   (* reserved *)
+let k0 = Temp.new_temp ()   (* reserved *)
+let k1 = Temp.new_temp ()   (* reserved *)
+let fp = Temp.new_temp ()   (* frame pointer *)
+let sp = Temp.new_temp ()   (* stack pointer *)
+let ra = Temp.new_temp ()   (* return address *)
+let v0 = Temp.new_temp ()   (* return value *)
+let v1 = Temp.new_temp ()   (* return value *)
+let a0 = Temp.new_temp ()   (* argument *)
+let a1 = Temp.new_temp ()   (* argument *)
+let a2 = Temp.new_temp ()   (* argument *)
+let a3 = Temp.new_temp ()   (* argument *)
+let s0 = Temp.new_temp ()   (* callee-saved *)
+let s1 = Temp.new_temp ()   (* callee-saved *)
+let s2 = Temp.new_temp ()   (* callee-saved *)
+let s3 = Temp.new_temp ()   (* callee-saved *)
+let s4 = Temp.new_temp ()   (* callee-saved *)
+let s5 = Temp.new_temp ()   (* callee-saved *)
+let s6 = Temp.new_temp ()   (* callee-saved *)
+let s7 = Temp.new_temp ()   (* callee-saved *)
+let t0 = Temp.new_temp ()   (* caller-saved *)
+let t1 = Temp.new_temp ()   (* caller-saved *)
+let t2 = Temp.new_temp ()   (* caller-saved *)
+let t3 = Temp.new_temp ()   (* caller-saved *)
+let t4 = Temp.new_temp ()   (* caller-saved *)
+let t5 = Temp.new_temp ()   (* caller-saved *)
+let t6 = Temp.new_temp ()   (* caller-saved *)
+let t7 = Temp.new_temp ()   (* caller-saved *)
+let t8 = Temp.new_temp ()   (* caller-saved *)
+let t9 = Temp.new_temp ()   (* caller-saved *)
     
 let rv = v0 (* use only one of the return value registers for now *)
 
 let specialregs =
-  [fp; ra; sp; zero; gp; v0; v1; at; k0; k1]
+  [rv; ra; fp; sp; zero; gp; at; k0; k1]
   
 let argregs = [a0; a1; a2; a3]
   
@@ -99,6 +138,12 @@ let temp_map =
     add t8 "$t8" |>
     add t9 "$t9")
 
+let string_of_temp t =
+  try
+    Temp.Table.find t temp_map
+  with Not_found ->
+    Temp.string_of_temp t
+
 let alloc_local ({allocated; _} as frame) escape =
   if escape then
     let access = InFrame (-allocated * word_size) in
@@ -107,37 +152,10 @@ let alloc_local ({allocated; _} as frame) escape =
   else
     InReg (Temp.new_temp ())
 
-let new_frame name formals =
-  let rec seq = function
+let rec seq = function
     [] -> raise (Failure "seq")
-    | [e] -> e
-    | h::t -> Tree.SEQ (h, seq t) in
-  let rec alloc_formals i allocated viewshift accesses = function
-      [] -> (allocated, seq (List.rev viewshift), List.rev accesses)
-    | formal :: formals ->
-        let incoming =
-            if i < List.length argregs then
-              Tree.TEMP (List.nth argregs i)
-            else
-              let offset = (i - List.length argregs + 1) * word_size in
-                Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST offset, Tree.TEMP fp)) in
-          if formal then
-            let offset = -allocated * word_size in
-            let access = InFrame offset in
-            let instr =
-              Tree.MOVE (Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST offset, Tree.TEMP fp)),
-                         incoming) in
-              alloc_formals (i + 1) (allocated + 1) (instr :: viewshift) (access :: accesses) formals
-          else
-            let temp = Temp.new_temp () in
-            let access = InReg temp in
-            let instr = Tree.MOVE (Tree.TEMP temp, incoming) in
-              alloc_formals (i + 1) allocated (instr :: viewshift) (access :: accesses) formals in
-  let (allocated, viewshift, formals) = alloc_formals 0 0 [] [] formals in
-    {name; allocated; viewshift; formals}
-
-let name {name; _} = name
-let formals {formals; _} = formals
+  | [e] -> e
+  | h::t -> Tree.SEQ (h, seq t)
 
 let exp access fp =
   match access with
@@ -146,23 +164,94 @@ let exp access fp =
   | InReg t ->
       Tree.TEMP t
 
+let new_frame name formals =
+  let exp access = exp access (Tree.TEMP fp) in
+  let rec alloc_formals i allocated viewshift accesses = function
+      [] -> (allocated, seq (List.rev viewshift), List.rev accesses)
+    | formal :: formals ->
+        let incoming =
+          if i < List.length argregs then InReg (List.nth argregs i)
+          else InFrame ((i - List.length argregs + 1) * word_size) in
+        let access =
+          if formal then InFrame (-allocated * word_size) else InReg (Temp.new_temp ()) in
+        let instr = Tree.MOVE (exp access, exp incoming) in
+          alloc_formals (i + 1) (if formal then allocated + 1 else allocated) (instr :: viewshift) (access :: accesses) formals in
+  let (allocated, viewshift, formals) = alloc_formals 0 0 [] [] formals in
+    {name; allocated=allocated+1; viewshift; formals; max_outgoing=0; fpaccess=(InFrame (-allocated * word_size))}
+
+let name {name; _} = name
+let formals {formals; _} = formals
+
 let external_call name args =
   Tree.CALL (Tree.NAME (Temp.named_label name), args)
 
-(* TODO: proc_entry_exit1 *)
-let proc_entry_exit1 {viewshift; _} body =
-  Tree.SEQ (viewshift, body)
+let proc_entry_exit1 ({viewshift; _} as frame) body =
+  let (save, restore) =
+    List.split
+      (List.map
+         (fun t ->
+            let exp = exp (alloc_local frame true) (Tree.TEMP fp) in
+              (Tree.MOVE (exp, Tree.TEMP t), Tree.MOVE (Tree.TEMP t, exp)))
+         (calleesaves @ [ra])) in
+    seq [seq save; viewshift; body; seq restore]
 
 let proc_entry_exit2 frame body =
-  body @ [Assem.OPER {Assem.
-                       assem = "";
-                       src = [zero; ra; sp] @ calleesaves;
-                       dst = []; jump = Some []}]
+  let max_outgoing =
+    List.fold_left
+      (fun max instr ->
+         match instr with
+           Assem.OPER {Assem.assem; src=[_; s1]; _} when s1 == sp ->
+             if Str.string_match (Str.regexp "sw 's0, \\([0-9]+\\)('s1)") assem 0 then
+               let m = int_of_string (Str.matched_group 1 assem) / 4 + 1 in
+                 if m > max then m else max
+             else max
+         | _ -> max)
+      0
+      body in
+    frame.max_outgoing <- max_outgoing;
+    body @ [Assem.OPER {Assem.
+                         assem = "";
+                         src = specialregs @ calleesaves;
+                         dst = []; jump = None}]
 
-let proc_entry_exit3 {name; _} body =
-  let prolog = "PROCEDURE " ^ Temp.string_of_label name ^ "\n" in
-  let epilog = "END " ^ Temp.string_of_label name ^ "\n" in
-    (prolog, body, epilog)
+let proc_entry_exit3 {name; allocated; max_outgoing; fpaccess; _} body =
+  let fpoffset = match fpaccess with InFrame k -> k in
+  let fs =
+    let pad fs = if fs mod (word_size * 2) = 0 then fs else fs + word_size in
+    let n = (allocated + max_outgoing) * word_size in
+      if n < min_frame_size then min_frame_size else pad n in
+  let prologue = [
+    Assem.LABEL {
+      Assem.assem = Temp.string_of_label name ^ ":";
+      lab = name};
+    Assem.OPER {
+      Assem.assem = "subu 'd0, 's0, " ^ string_of_int fs;
+      src = [sp]; dst = [sp];
+      jump = None};
+     Assem.OPER {
+       Assem.assem = "sw 's0, " ^ string_of_int (fs - word_size + fpoffset) ^ "('s1)";
+       src = [fp; sp]; dst = [];
+       jump = None};
+     Assem.OPER {
+       Assem.assem = "addiu 'd0, 's0, " ^ string_of_int (fs - word_size);
+       src = [sp]; dst = [fp];
+       jump = None}] in 
+  let epilogue = [Assem.OPER {
+      Assem.assem = "lw 'd0, " ^ string_of_int (fs - word_size + fpoffset) ^ "('s0)";
+       src = [sp]; dst = [fp];
+       jump = None};
+     Assem.OPER {
+      Assem.assem = "addiu 's0, 'd0, " ^ string_of_int fs;
+      src = [sp]; dst = [sp];
+      jump = None};
+     Assem.OPER {
+       Assem.assem = "jr 's0";
+       src = [ra]; dst =[];
+       jump = None}] in
+  let mk_string instrs = List.fold_left (fun s instr -> s ^ Assem.format string_of_temp instr ^ "\n") "" instrs in
+    (".text\n" ^ mk_string prologue, body, mk_string epilogue)
 
-(* TODO *)
-let string label s = ""
+let string label s =
+  ".data\n" ^ (Temp.string_of_label label) ^ ":\n\t.asciiz\t" ^ "\"" ^ s ^ "\"\n.text"
+
+let string_of_register r = r

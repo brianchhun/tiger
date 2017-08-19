@@ -308,15 +308,3 @@ let proc_entry_exit level body =
     | Level (_, f, _) ->
         let body'' = Frame.proc_entry_exit1 f body' in
           frags := !frags @ [Frame.PROC (body'', f)]
-
-let print_tree t = Printtree.printtree (stdout, un_nx t)
-let print_tree_canon t = List.iter (fun t -> Printtree.printtree (stdout, t)) (Canon.linearize (un_nx t))
-let print_frags l =
-  let print_frag =  function
-    | Frame.STRING (l, s) ->
-        print_string ("STRING(" ^ Temp.string_of_label l ^ ", " ^ s ^ ")\n")
-    | Frame.PROC (stm, _) ->
-        print_string ("PROC(\n");  print_tree (Ex (T.ESEQ(stm, T.CONST 0))); print_string ")\n"
-  in 
-    print_string ("Fragments: " ^ string_of_int (List.length l) ^ "\n");
-    List.iter print_frag l

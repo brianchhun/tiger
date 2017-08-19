@@ -11,6 +11,7 @@ test:	native
 	$(OCB) -package oUnit lexer_test.native \
 						  graph_test.native \
 						  make_graph_test.native \
+						liveness_test.native
 
 testcases: native
 	testcases/runtests.sh main.native

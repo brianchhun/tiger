@@ -465,13 +465,7 @@ and trans_ty tenv = function
         T.ARRAY (elem_ty, ref ())
 
 let trans_prog exp =
-  let level = Translate.new_level Translate.outermost (Temp.new_label ()) [] in
+  let level = Translate.new_level Translate.outermost (Temp.named_label "t_main") [] in
   let {exp; _} = trans_exp Env.base_venv Env.base_tenv None level exp in
     Translate.proc_entry_exit level exp;
-    let frags = Translate.get_result () in
-      Translate.print_tree_canon exp;
-      print_newline ();
-      Translate.print_tree exp;
-      print_newline ();
-      Translate.print_frags frags;
-      frags
+    Translate.get_result ()

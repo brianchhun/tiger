@@ -1,0 +1,4 @@
+let
+   	function f(x:string):string = x
+in f("hi")
+end

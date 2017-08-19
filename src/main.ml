@@ -1,33 +1,35 @@
-let string_of_temp t =
-  try
-    Temp.Table.find t Frame.temp_map
-  with
-    Not_found -> Temp.string_of_temp t
-                   
-let emitproc = function
+let emitproc oc = function
     Frame.PROC (body, frame) ->
-      let stms = body |>
-                 Canon.linearize |>
-                 Canon.basic_blocks |>
-                 Canon.trace_schedule in
-      let (prologue, instrs, epilogue) = List.concat (List.map (Codegen.codegen frame) stms) |>
-                                       Frame.proc_entry_exit2 frame |>
-                                       Frame.proc_entry_exit3 frame in
-        print_string prologue;
-        List.iter (fun i -> print_endline (Assem.format string_of_temp i)) instrs;
-        print_string epilogue
-
+      let instrs = List.concat (List.map (Codegen.codegen frame) 
+                                  (body |> Canon.linearize |> Canon.basic_blocks |> Canon.trace_schedule)) in
+      let (instrs', allocation) = Reg_alloc.alloc (Frame.proc_entry_exit2 frame instrs) frame in
+      let (prologue, instrs'', epilogue) = Frame.proc_entry_exit3 frame instrs' in
+      let string_of_temp t = Frame.string_of_register (Temp.Table.find t allocation) in
+        output_string oc prologue;
+        List.iter (fun i -> output_string oc (Assem.format string_of_temp i ^ "\n")) instrs'';
+        output_string oc epilogue
 
   | Frame.STRING (label, s) ->
-      print_string (Frame.string label s)
+      output_string oc (Frame.string label s)
 
 let _ =
   try
-    let lexbuf = Lexing.from_channel stdin in
+    Printexc.record_backtrace true;
+
+    if (Array.length Sys.argv) < 2 then
+      begin
+        print_endline ("no input files");
+        exit 1
+      end;
+
+    let filename = Sys.argv.(1) in
+    let lexbuf = Lexing.from_channel (open_in filename) in
     let absyn = Parser.program Lexer.token lexbuf in
       Parsing.clear_parser();
       Find_escape.find_escape absyn;
       let frags = Semant.trans_prog absyn in
-        List.iter emitproc frags
+      let oc = open_out (Filename.remove_extension (Filename.basename filename) ^ ".s") in
+        List.iter (emitproc oc) frags;
+        close_out oc
   with Parsing.Parse_error ->
     Error_msg.parse_error "syntax error"
