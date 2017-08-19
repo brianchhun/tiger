@@ -9,7 +9,7 @@ let base_tenv =
   @@ Symbol.empty
 
 let base_venv =
-  Symbol.enter (Symbol.symbol "print") (FunEntry (Translate.outermost, Temp.new_label (), [Types.STRING], Types.UNIT))
+  Symbol.enter (Symbol.symbol "print") (FunEntry (Translate.outermost, Temp.named_label "print", [Types.STRING], Types.UNIT))
   @@ Symbol.enter (Symbol.symbol "flush") (FunEntry (Translate.outermost, Temp.new_label (), [], Types.UNIT))
   @@ Symbol.enter (Symbol.symbol "getchar") (FunEntry (Translate.outermost, Temp.new_label (), [], Types.STRING))
   @@ Symbol.enter (Symbol.symbol "ord") (FunEntry (Translate.outermost, Temp.new_label (), [Types.STRING], Types.INT))

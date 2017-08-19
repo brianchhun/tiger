@@ -290,9 +290,11 @@ let call_exp flevel level label args =
             raise (Failure "find_sl")
       | Outermost ->
           raise (Failure "find_sl") in
-
-  let sl = if flevel = Outermost then T.CONST 0 else find_sl level (T.TEMP Frame.fp) in
-    Ex (T.CALL (T.NAME label, sl :: List.map un_ex args))
+    if flevel = Outermost then
+      Ex (T.CALL (T.NAME label, List.map un_ex args))
+    else
+      let sl = find_sl level (T.TEMP Frame.fp) in
+        Ex (T.CALL (T.NAME label, sl :: List.map un_ex args))
 
 let assign_exp var exp =
   Nx (T.MOVE (un_ex var, un_ex exp))

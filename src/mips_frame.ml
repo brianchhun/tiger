@@ -252,6 +252,14 @@ let proc_entry_exit3 {name; allocated; max_outgoing; fpaccess; _} body =
     (".text\n" ^ mk_string prologue, body, mk_string epilogue)
 
 let string label s =
-  ".data\n" ^ (Temp.string_of_label label) ^ ":\n\t.asciiz\t" ^ "\"" ^ s ^ "\"\n.text"
+  let size = String.length s in
+  let bytes = Array.make (size+4) 0 in
+    Array.set bytes 0 (size land 0x000000ff);
+    Array.set bytes 1 ((size land 0x0000ff00) lsr 8);
+    Array.set bytes 2 ((size land 0x00ff0000) lsr 16);
+    Array.set bytes 3 ((size land 0xff000000) lsr 24);
+    String.iteri (fun i c -> Array.set bytes (i+4) (Char.code c)) s;
+  let bytestring = Array.fold_left (fun bs b -> bs ^ string_of_int b ^ " ") "" bytes in
+  ".data\n.align 2\n" ^ (Temp.string_of_label label) ^ ":\n\t.byte " ^ bytestring ^ "\n.text\n"
 
 let string_of_register r = r
