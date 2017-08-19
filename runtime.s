@@ -81,16 +81,16 @@
 #  for(i=0;i<s->length;i++,p++) putchar(*p);
 # }
 
-## print:
-## lw $a1,0($a0)
-## add $a0,$a0,4
-## add $a2,$a0,$a1
-## lb $a3,($a2)
-## sb $0,($a2)
-## li $v0,4
-## syscall
-## sb $a3,($a2)
-## j $ra
+print:
+lw $a1,0($a0)
+add $a0,$a0,4
+add $a2,$a0,$a1
+lb $a3,($a2)
+sb $0,($a2)
+li $v0,4
+syscall
+sb $a3,($a2)
+jr $ra
 
 # void flush()
 # {
@@ -98,7 +98,7 @@
 # }
 
 flush:
-j $ra
+jr $ra
 
 # int main()
 # {int i;
@@ -136,13 +136,13 @@ j t_main
 #  else return s->chars[0];
 # }
 
-## ord:
-## lw $a1,($a0)
-## li $v0,-1
-## beqz $a1,Lrunt5
-## lbu $v0,4($a0)
-## Lrunt5:
-## j $ra
+ord:
+lw $a1,($a0)
+li $v0,-1
+beqz $a1,Lrunt5
+lbu $v0,4($a0)
+Lrunt5:
+jr $ra
 
 
 
@@ -160,7 +160,7 @@ Lrunt30: .asciiz "character out of range\n"
 .text
 
 chr:
-andi $a1,$a0,255
+srl  $a1,$a0,8
 bnez $a1,Lrunt31
 sll  $a0,$a0,3
 la   $v0,Runtconsts($a0)
