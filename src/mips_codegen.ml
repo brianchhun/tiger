@@ -43,7 +43,7 @@ let codegen frame stm =
             src = [munch_exp e2]; dst = []; jump = None})
     | T.MOVE (T.MEM (e1), e2) ->
         emit (A.OPER {
-            A.assem = "sw 's1, ('s0)";
+            A.assem = "sw 's0, ('s1)";
             src = [munch_exp e2; munch_exp e1]; dst = []; jump = None})
     | T.LABEL lab ->
         emit (A.LABEL {A.assem = Temp.string_of_label lab ^ ":"; lab = lab})
@@ -111,7 +111,7 @@ let codegen frame stm =
             src =[]; dst = [r]; jump = None}))
     | T.MEM (e1) ->
         result (fun r -> emit (A.OPER {A.
-            assem = "lw 'd0, 's0";
+            assem = "lw 'd0, ('s0)";
             src = [munch_exp e1]; dst = [r]; jump = None}))
     | T.BINOP (T.PLUS, e1, T.CONST i) ->
         result (fun r -> emit (A.OPER {A.

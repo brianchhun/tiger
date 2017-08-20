@@ -5,20 +5,20 @@
 #  return a;
 # }
 
-## .text
-## initArray:
-## sll $a0,$a0,2
-## li $v0,9
-## syscall
-## move $a2,$v0
-## b Lrunt2
-## Lrunt1:
-## sw $a1,($a2)
-## sub $a0,$a0,4
-## add $a2,$a2,4
-## Lrunt2:
-## bgtz $a0, Lrunt1
-## j $ra
+.text
+initArray:
+sll $a0,$a0,2
+li $v0,9
+syscall
+move $a2,$v0
+b Lrunt2
+Lrunt1:
+sw $a1,($a2)
+sub $a0,$a0,4
+add $a2,$a2,4
+Lrunt2:
+bgtz $a0, Lrunt1
+jr $ra
 
 # 
 # int *allocRecord(int size)
