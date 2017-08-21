@@ -7,6 +7,8 @@
 
 .text
 initArray:
+move $a3,$a0
+addiu $a0,$a0,1
 sll $a0,$a0,2
 li $v0,9
 syscall
@@ -17,6 +19,9 @@ sw $a1,($a2)
 sub $a0,$a0,4
 add $a2,$a2,4
 Lrunt2:
+sw $a3,($a2)
+sub $a0,$a0,4
+add $a2,$a2,4
 bgtz $a0, Lrunt1
 jr $ra
 
@@ -326,5 +331,25 @@ syscall
 ## j $ra
 
 
+# void checkArrayBounds(int *a, int i)
+# {
+#  if (*a<0 || *a>=i) 
+#    {printf("index out of range\n"i); exit(1);}
+# }
 
+.data
+Lrunt54: .asciiz "index out of range\n"
+.text
 
+.globl checkArrayBounds
+checkArrayBounds:
+lw $a2,($a0)
+bltz $a1,Lrunt55
+bge $a1,$a2,Lrunt55
+jr $ra
+Lrunt55:
+li   $v0,4
+la   $a0,Lrunt54
+syscall
+li   $v0,10
+syscall

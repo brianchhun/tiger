@@ -101,10 +101,14 @@ let field_var r i =
                T.BINOP (T.MUL, T.CONST i, T.CONST Frame.word_size))))
 
 let subscript_var a i =
-  Ex (T.MEM (
-      T.BINOP (T.PLUS,
-               (un_ex a),
-               T.BINOP (T.MUL, (un_ex i), T.CONST Frame.word_size))))
+  let t = Temp.new_temp () in
+    Ex (T.ESEQ(
+        seq [T.EXP (Frame.external_call "checkArrayBounds" [un_ex a; un_ex i]);
+             T.MOVE (T.TEMP t, T.BINOP (T.PLUS, un_ex a, T.CONST Frame.word_size))],
+        T.MEM (T.BINOP (T.PLUS,
+                        T.TEMP t,
+                        T.BINOP (T.MUL, un_ex i, T.CONST Frame.word_size)))))
+
 
 let nil_exp = Ex (T.CONST 0)
 let int_exp i = Ex (T.CONST i)

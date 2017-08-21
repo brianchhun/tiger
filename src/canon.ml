@@ -76,6 +76,9 @@ let linearize stm0 =
           else
             let t = T.TEMP (Temp.new_temp ()) in
               stm1' % T.MOVE (t, e') % stm2' % T.MOVE (T.MEM t, rv)
+    | T.MOVE (T.ESEQ _ as e, b) ->
+        let (stm1', e') = do_exp e in
+          stm1' % do_stm (T.MOVE (e', b))
     | T.EXP e ->
         let (stm', _) = do_exp e in
           stm'
