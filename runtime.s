@@ -183,9 +183,9 @@ syscall
 #  return s->length;
 # }
 
-## size:
-## lw $v0,($a0)
-## j $ra
+size:
+lw $v0,($a0)
+jr $ra
 
 # struct string *substring(struct string *s, int first, int n)
 # {
@@ -295,9 +295,9 @@ syscall
 # }
 # 
 
-## _not:
-## seq $v0,$a0,0
-## j $ra
+_not:
+seq $v0,$a0,0
+jr $ra
 
 
 # #undef getchar
@@ -341,7 +341,6 @@ syscall
 Lrunt54: .asciiz "index out of range\n"
 .text
 
-.globl checkArrayBounds
 checkArrayBounds:
 lw $a2,($a0)
 bltz $a1,Lrunt55
@@ -352,4 +351,8 @@ li   $v0,4
 la   $a0,Lrunt54
 syscall
 li   $v0,10
+syscall
+
+exit:
+li $v0,17
 syscall
