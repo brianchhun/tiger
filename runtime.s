@@ -57,28 +57,28 @@ jr $ra
 #  return 1;
 # }
 
-## stringEqual:
-## beq $a0,$a1,Lrunt10
-## lw  $a2,($a0)
-## lw  $a3,($a1)
-## addiu $a0,$a0,4
-## addiu $a1,$a1,4
-## beq $a2,$a3,Lrunt11
-## Lrunt13:
-## li  $v0,0
-## j $ra
-## Lrunt12:
-## lbu  $t0,($a0)
-## lbu  $t1,($a1)
-## bne  $t0,$t1,Lrunt13
-## addiu $a0,$a0,1
-## addiu $a1,$a1,1
-## addiu $a2,$a2,-1
-## Lrunt11:
-## bgez $a2,Lrunt12
-## Lrunt10:
-## li $v0,1
-## j $ra
+stringEqual:
+beq $a0,$a1,Lrunt10
+lw  $a2,($a0)
+lw  $a3,($a1)
+addiu $a0,$a0,4
+addiu $a1,$a1,4
+beq $a2,$a3,Lrunt11
+Lrunt13:
+li  $v0,0
+j $ra
+Lrunt12:
+lbu  $t0,($a0)
+lbu  $t1,($a1)
+bne  $t0,$t1,Lrunt13
+addiu $a0,$a0,1
+addiu $a1,$a1,1
+addiu $a2,$a2,-1
+Lrunt11:
+bgez $a2,Lrunt12
+Lrunt10:
+li $v0,1
+j $ra
 
 # 
 # void print(struct string *s)

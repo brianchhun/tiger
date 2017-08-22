@@ -123,7 +123,7 @@ let ne_op_exp a b = Cx (fun t f -> T.CJUMP (T.NE, un_ex a, un_ex b, t, f))
 
 let string_eq_op_exp a b =
   Cx (fun t f ->
-      let r = Frame.external_call "stringEquals" [un_ex a; un_ex b] in
+      let r = Frame.external_call "stringEqual" [un_ex a; un_ex b] in
         T.CJUMP (T.EQ, r, T.CONST 1, t, f))
 
 let string_ne_op_exp a b =
