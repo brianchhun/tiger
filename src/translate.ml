@@ -237,7 +237,7 @@ let record_exp fields =
   let r = Temp.new_temp () in
     Ex (T.ESEQ (
         seq (
-          T.MOVE (T.TEMP r, Frame.external_call "malloc" [T.CONST (len * Frame.word_size)]) ::
+          T.MOVE (T.TEMP r, Frame.external_call "allocRecord" [T.CONST (len * Frame.word_size)]) ::
           List.mapi
             (fun i e -> T.MOVE (T.MEM (T.BINOP (T.PLUS, T.TEMP r, T.CONST (i * Frame.word_size))), un_ex e))
             fields

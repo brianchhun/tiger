@@ -34,18 +34,18 @@ jr $ra
 #  return a;
 # }
 
-## allocRecord:
-## li $v0,9
-## syscall
-## move $a2,$v0
-## b Lrunt4
-## Lrunt3:
-## sw $0,($a2)
-## sub $a0,$a0,4
-## add $a2,$a2,4
-## Lrunt4:
-## bgtz $a0, Lrunt3
-## j $ra
+allocRecord:
+li $v0,9
+syscall
+move $a2,$v0
+b Lrunt4
+Lrunt3:
+sw $0,($a2)
+sub $a0,$a0,4
+add $a2,$a2,4
+Lrunt4:
+bgtz $a0, Lrunt3
+jr $ra
 
 # struct string {int length; unsigned char chars[1];};
 # 
