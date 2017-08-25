@@ -86,15 +86,25 @@ j $ra
 #  for(i=0;i<s->length;i++,p++) putchar(*p);
 # }
 
+.data
+.align 4
+putchar_buf:	.byte 0 0
+.text
+
 print:
-lw $a1,0($a0)
-add $a0,$a0,4
-add $a2,$a0,$a1
-lb $a3,($a2)
-sb $0,($a2)
+lw $t1,0($a0)
+beqz $t1,Lrunt56
+add $t0,$a0,4
+la $a0,putchar_buf
+Lrunt57:
+lbu $t3,($t0)
+sb $t3,0($a0)
 li $v0,4
 syscall
-sb $a3,($a2)
+addiu $t0,$t0,1
+addiu $t1,$t1,-1
+bgtz $t1,Lrunt57
+Lrunt56:
 jr $ra
 
 # void flush()
@@ -115,6 +125,7 @@ jr $ra
 # }
 
 .data
+.align 4
 Runtconsts: 
 .space 2048
 Runtempty: .word 0
@@ -202,42 +213,46 @@ jr $ra
 # }
 # 
 
-## .data
-## Lrunt40:  .asciiz "substring out of bounds\n"
-## 
-## substring:
-## lw $t1,($a0)
-## bltz $a1,Lrunt41
-## add $t2,$a1,$a2
-## sgt $t3,$t2,$t1
-## bnez $t3,Lrunt41
-## add $t1,$a0,$a1
-## bne $a2,1,Lrunt42
-## lbu $a0,($t1)
-## b chr
-## Lrunt42:
-## bnez $a2,Lrunt43
-## la  $v0,Lruntempty
-## j $ra
-## Lrunt43:
-## addi $a0,$a2,4
-## li   $v0,9
-## syscall
-## move $t2,$v0
-## Lrunt44:
-## lbu  $t3,($t1)
-## sb   $t3,($t2)
-## addiu $t1,1
-## addiu $t2,1
-## addiu $a2,-1
-## bgtz $a2,Lrunt44
-## j $ra
-## Lrunt41:
-## li   $v0,4
-## la   $a0,Lrunt40
-## syscall
-## li   $v0,10
-## syscall
+.data
+Lrunt40:  .asciiz "substring out of bounds\n"
+.text
+
+substring:
+lw $t1,($a0)
+bltz $a1,Lrunt41
+add $t2,$a1,$a2
+sgt $t3,$t2,$t1
+bnez $t3,Lrunt41
+add $t1,$a0,$a1
+addiu $t1,$t1,4
+bne $a2,1,Lrunt42
+lbu $a0,($t1)
+b chr
+Lrunt42:
+bnez $a2,Lrunt43
+la  $v0,Runtempty
+jr $ra
+Lrunt43:
+addi $a0,$a2,4
+li   $v0,9
+syscall
+move $t2,$v0
+sw $a2,($t2)
+addiu $t2,$t2,4
+Lrunt44:
+lbu  $t3,($t1)
+sb   $t3,($t2)
+addiu $t1,$t1,1
+addiu $t2,$t2,1
+addiu $a2,$a2,-1
+bgtz $a2,Lrunt44
+jr $ra
+Lrunt41:
+li   $v0,4
+la   $a0,Lrunt40
+syscall
+li   $v0,10
+syscall
 
 
 # struct string *concat(struct string *a, struct string *b)
