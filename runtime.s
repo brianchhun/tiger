@@ -323,28 +323,24 @@ jr $ra
 #  else return consts+i;
 # }
 
-## .data
-## getchbuf: .space 200
-## getchptr: .word getchbuf
-## 
-## .text
-## getchar:
-## lw  $a0,getchptr
-## lbu $v0,($a0)
-## add $a0,$a0,1
-## bnez $v0,Lrunt6
-## li $v0,8
-## la $a0,getchbuf
-## li $a1,200
-## syscall
-## la $a0,getchbuf
-## lbu $v0,($a0)
-## bnez $v0,Lrunt6
-## li $v0,-1
-## Lrunt6:
-## sw $a0,getchptr
-## j $ra
+.data
+.align 4
+getchar_buf:	.byte 0 0
+.text
 
+getchar:
+la $a0, getchar_buf
+li $a1, 2
+li $v0, 8
+syscall
+lb $v0, ($a0)
+bnez $v0, Lrunt58
+la $v0, Runtempty
+jr $ra
+Lrunt58:
+sll $v0,$v0,3
+la $v0,Runtconsts($v0)
+jr $ra
 
 # void checkArrayBounds(int *a, int i)
 # {
