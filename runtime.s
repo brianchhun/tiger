@@ -263,40 +263,40 @@ syscall
 #      }
 # }
 
-## concat:
-## lw $t0,($a0)
-## lw $t1,($a1)
-## beqz $t0,Lrunt50
-## beqz $t1,Lrunt51
-## addiu  $t2,$a0,4
-## addiu  $t3,$a1,4
-## add  $t4,$t0,$t1
-## addiu $a0,$t4,4
-## li $v0,9
-## syscall
-## addiu $t5,$v0,4
-## sw $t4,($v0)
-## Lrunt52:
-## lbu $a0,($t2)
-## sb  $a0,($t5)
-## addiu $t2,1
-## addiu $t5,1
-## addiu $t0,-1
-## bgtz $t0,Lrunt52
-## Lrunt53:
-## lbu $a0,($t4)
-## sb  $a0,($t5)
-## addiu $t4,1
-## addiu $t5,1
-## addiu $t2,-1
-## bgtz $t2,Lrunt52
-## j $ra
-## Lrunt50:
-## move $v0,$a1
-## j $ra
-## Lrunt51:
-## move $v0,$a0
-## j $ra
+concat:
+lw $t0,($a0)
+lw $t1,($a1)
+beqz $t0,Lrunt50
+beqz $t1,Lrunt51
+addiu  $t2,$a0,4
+addiu  $t3,$a1,4
+add  $t4,$t0,$t1
+addiu $a0,$t4,4
+li $v0,9
+syscall
+addiu $t5,$v0,4
+sw $t4,($v0)
+Lrunt52:
+lbu $a0,($t2)
+sb  $a0,($t5)
+addiu $t2,$t2,1
+addiu $t5,$t5,1
+addiu $t0,$t0,-1
+bgtz $t0,Lrunt52
+Lrunt53:
+lbu $a0,($t3)
+sb  $a0,($t5)
+addiu $t3,$t3,1
+addiu $t5,$t5,1
+addiu $t1,$t1,-1
+bgtz $t1,Lrunt53
+j $ra
+Lrunt50:
+move $v0,$a1
+j $ra
+Lrunt51:
+move $v0,$a0
+j $ra
 
 # int not(int i)
 # { return !i;
@@ -306,7 +306,6 @@ syscall
 _not:
 seq $v0,$a0,0
 jr $ra
-
 
 # #undef getchar
 # 
