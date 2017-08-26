@@ -1,3 +1,5 @@
+.text
+
 # int *initArray(int size, int init)
 # {int i;
 #  int *a = (int *)malloc(size*sizeof(int));
@@ -5,7 +7,6 @@
 #  return a;
 # }
 
-.text
 initArray:
 move $a3,$a0
 addiu $a0,$a0,1
@@ -25,7 +26,6 @@ add $a2,$a2,4
 bgtz $a0, Lrunt1
 jr $ra
 
-# 
 # int *allocRecord(int size)
 # {int i;
 #  int *p, *a;
@@ -80,7 +80,6 @@ Lrunt10:
 li $v0,1
 j $ra
 
-# 
 # void print(struct string *s)
 # {int i; unsigned char *p=s->chars;
 #  for(i=0;i<s->length;i++,p++) putchar(*p);
@@ -126,11 +125,10 @@ jr $ra
 
 .data
 .align 4
-Runtconsts: 
-.space 2048
+Runtconsts: .space 2048
 Runtempty: .word 0
-
 .text
+
 main: 
 li $a0,0
 la $a1,Runtconsts
@@ -145,7 +143,6 @@ bnez $a3,Lrunt20
 li $a0,0
 j t_main
 
-
 # int ord(struct string *s)
 # {
 #  if (s->length==0) return -1;
@@ -159,8 +156,6 @@ beqz $a1,Lrunt5
 lbu $v0,4($a0)
 Lrunt5:
 jr $ra
-
-
 
 # struct string empty={0,""};
 
@@ -187,7 +182,6 @@ la   $a0,Lrunt30
 syscall
 li   $v0,10
 syscall
-
 
 # int size(struct string *s)
 # { 
@@ -253,7 +247,6 @@ la   $a0,Lrunt40
 syscall
 li   $v0,10
 syscall
-
 
 # struct string *concat(struct string *a, struct string *b)
 # {
@@ -364,6 +357,8 @@ syscall
 li   $v0,10
 syscall
 
+# void exit(int i)
+	
 exit:
 li $v0,17
 syscall
