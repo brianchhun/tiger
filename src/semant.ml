@@ -245,7 +245,7 @@ and trans_exp venv tenv break level exp =
             A.WhileExp (
               A.IntExp 1,
               A.SeqExp [
-                (body, pos);
+                (A.IfExp (A.IntExp 1, body, None, pos), pos);
                 (A.IfExp (
                   A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.LtOp, A.VarExp (A.SimpleVar (limit_sym, pos)), pos),
                   A.AssignExp (A.SimpleVar (var, pos), A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.PlusOp, A.IntExp 1, pos), pos),
