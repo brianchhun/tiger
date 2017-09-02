@@ -16,7 +16,6 @@ type t = Arity_mismatch of int * int
        | Undefined_record_field of string
        | Undefined_variable of string
        | Undefined_type of string
-       | Variable_cannot_be_assigned of string
 
 let string_of_error_msg = function
   | Arity_mismatch (s, t) ->
@@ -55,8 +54,6 @@ let string_of_error_msg = function
       "undefined type " ^ s
   | Undefined_variable s ->
       "undefined variable " ^ s
-  | Variable_cannot_be_assigned s ->
-      "variable " ^ s ^ "cannot be assigned to"
 
 let any_errors = ref false
 let line_num = ref 1

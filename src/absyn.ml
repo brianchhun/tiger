@@ -21,7 +21,6 @@ and exp = VarExp of var
         | RecordExp of (symbol * exp * pos) list (* fields *) * symbol (* typ *) * pos
         | SeqExp of (exp * pos) list
         | AssignExp of var * exp * pos
-        | UncheckedAssignExp of var * exp * pos
         | IfExp of exp (* test *) * exp (* then *) * exp option (* else *) * pos
         | WhileExp of exp (* test *) * exp (* body *) * pos
         | ForExp of symbol (* var *) * bool ref (* escape *) *
@@ -62,8 +61,7 @@ and vardec = {
   vardec_escape: bool ref;
   vardec_ty: (symbol * pos) option;
   vardec_init: exp;
-  vardec_pos: pos;
-  vardec_assignable: bool
+  vardec_pos: pos
 }
 
 and tydec = {

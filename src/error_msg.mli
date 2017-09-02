@@ -16,7 +16,6 @@ type t = Arity_mismatch of int * int
        | Undefined_record_field of string
        | Undefined_variable of string
        | Undefined_type of string
-       | Variable_cannot_be_assigned of string
 
 val any_errors : bool ref
 val line_num : int ref
