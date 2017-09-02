@@ -1,6 +1,6 @@
 type access
 type enventry =
-    VarEntry of Translate.access * Types.t
+    VarEntry of Translate.access * Types.t * bool
   | FunEntry of Translate.level * Temp.label * Types.t list * Types.t
 
 val base_tenv : Types.t Symbol.table

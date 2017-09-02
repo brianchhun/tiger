@@ -46,15 +46,9 @@ let rec actual_ty = function
   | ty' -> ty'
 
 let rec trans_var venv tenv break level = function
-  | A.SimpleVar (id, pos) ->
-      begin
-        match S.look id venv with
-          Some (Env.VarEntry (access, ty)) ->
-            {exp = Translate.simple_var access level; ty}
-        | _ ->
-            Error_msg.error pos (Error_msg.Undefined_variable (S.name id));
-            {exp = Translate.unit_exp; ty = T.INT}
-      end
+  | A.SimpleVar (id, pos) as var ->
+      let (expty, _) = trans_var_assignable venv tenv break level var in
+        expty
   | A.FieldVar (var, id, pos) ->
       let {exp = record_exp; ty = record_ty} = trans_var venv tenv break level var in
         begin
@@ -88,6 +82,20 @@ let rec trans_var venv tenv break level = function
               Error_msg.error pos (Error_msg.Type_mismatch ("array", T.string_of_ty ty));
               {exp = Translate.unit_exp; ty = T.INT}
         end
+
+and trans_var_assignable venv tenv break level var =
+  match var with
+  | A.SimpleVar (id, pos) ->
+      begin
+        match S.look id venv with
+          Some (Env.VarEntry (access, ty, assignable)) ->
+            ({exp = Translate.simple_var access level; ty}, assignable)
+        | _ ->
+            Error_msg.error pos (Error_msg.Undefined_variable (S.name id));
+            ({exp = Translate.unit_exp; ty = T.INT}, true)
+      end
+  | A.FieldVar _ | A.SubscriptVar _ ->
+      (trans_var venv tenv break level var, true)
 
 and trans_exp venv tenv break level exp =
   let rec trexp = function
@@ -180,6 +188,13 @@ and trans_exp venv tenv break level exp =
             exps in
           {exp = Translate.seq_exp exps; ty}
     | A.AssignExp (var, exp, pos) ->
+        let ({exp = var_exp; ty}, assignable) = trans_var_assignable venv tenv break level var in
+          if not assignable then
+            Error_msg.error pos (Error_msg.Variable_cannot_be_assigned "");
+          let {exp = val_exp; _} as val_expty = trexp exp in
+            check_expty ty val_expty pos;
+          {exp = Translate.assign_exp var_exp val_exp; ty = T.UNIT}
+    | A.UncheckedAssignExp (var, exp, pos) ->
         let {exp = var_exp; ty} = trans_var venv tenv break level var in
         let {exp = val_exp; _} as val_expty = trexp exp in
           check_expty ty val_expty pos;
@@ -224,22 +239,26 @@ and trans_exp venv tenv break level exp =
                               vardec_escape = ref false;
                               vardec_ty = None;
                               vardec_init = lo;
-                              vardec_pos = pos};
+                              vardec_pos = pos;
+                              vardec_assignable = true};
                     A.VarDec {A.vardec_name = hi_sym;
                               vardec_escape = ref false;
                               vardec_ty = None;
                               vardec_init = hi;
-                              vardec_pos = pos};
+                              vardec_pos = pos;
+                              vardec_assignable = true};
                     A.VarDec {A.vardec_name = var;
                               vardec_escape = escape;
                               vardec_ty = None;
                               vardec_init = A.VarExp (A.SimpleVar (lo_sym, pos));
-                              vardec_pos = pos};
+                              vardec_pos = pos;
+                              vardec_assignable = false};
                     A.VarDec {A.vardec_name = limit_sym;
                               vardec_escape = ref false;
                               vardec_ty = None;
                               vardec_init = A.VarExp (A.SimpleVar (hi_sym, pos));
-                              vardec_pos = pos}] in
+                              vardec_pos = pos;
+                              vardec_assignable = true}] in
         let body' = A.IfExp (
             A.OpExp (A.VarExp (A.SimpleVar (lo_sym, pos)), A.LeOp, A.VarExp (A.SimpleVar (hi_sym, pos)), pos),
             A.WhileExp (
@@ -248,7 +267,7 @@ and trans_exp venv tenv break level exp =
                 (A.IfExp (A.IntExp 1, body, None, pos), pos);
                 (A.IfExp (
                   A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.LtOp, A.VarExp (A.SimpleVar (limit_sym, pos)), pos),
-                  A.AssignExp (A.SimpleVar (var, pos), A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.PlusOp, A.IntExp 1, pos), pos),
+                  A.UncheckedAssignExp (A.SimpleVar (var, pos), A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.PlusOp, A.IntExp 1, pos), pos),
                   Some (A.BreakExp pos),
                   pos
                   ), pos)
@@ -300,7 +319,7 @@ and trans_exp venv tenv break level exp =
   in trexp exp
 
 and trans_dec venv tenv break level = function
-  | A.VarDec {A.vardec_name; vardec_ty; vardec_init; vardec_pos; vardec_escape} ->
+  | A.VarDec {A.vardec_name; vardec_ty; vardec_init; vardec_pos; vardec_escape; vardec_assignable} ->
       let access = Translate.alloc_local level !vardec_escape in
       let {exp; ty} as expty = trans_exp venv tenv break level vardec_init in
       let venv' =
@@ -308,16 +327,16 @@ and trans_dec venv tenv break level = function
         | None ->
             if ty = T.NIL then
               Error_msg.error vardec_pos Error_msg.Unconstrained_nil;
-            S.enter vardec_name (Env.VarEntry (access, ty)) venv;
+            S.enter vardec_name (Env.VarEntry (access, ty, vardec_assignable)) venv;
         | Some (ty_id, ty_pos) ->
             match S.look ty_id tenv with
             | Some ty ->
                 let actual = actual_ty ty in
                   check_expty actual expty vardec_pos;
-                  S.enter vardec_name (Env.VarEntry (access, actual)) venv
+                  S.enter vardec_name (Env.VarEntry (access, actual, vardec_assignable)) venv
             | None ->
                 Error_msg.error ty_pos (Error_msg.Undefined_type (S.name ty_id));
-                S.enter vardec_name (Env.VarEntry (access, T.INT)) venv in
+                S.enter vardec_name (Env.VarEntry (access, T.INT, vardec_assignable)) venv in
       let assign_exp = Translate.assign_exp (Translate.simple_var access level) exp in
         {venv = venv'; tenv; exps = [assign_exp]}
 
@@ -425,7 +444,7 @@ and trans_dec venv tenv break level = function
                  fundec_params
                  param_tys in
              let venv'' = List.fold_left2
-                 (fun venv (name, ty) access -> S.enter name (Env.VarEntry (access, ty)) venv)
+                 (fun venv (name, ty) access -> S.enter name (Env.VarEntry (access, ty, true)) venv)
                  venv'
                  params
                  accesses in

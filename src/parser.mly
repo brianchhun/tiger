@@ -212,13 +212,15 @@ vardec:
        vardec_escape = ref true;
        vardec_ty = None;
        vardec_init = $4;
-       vardec_pos = P.rhs_start 1} }
+       vardec_pos = P.rhs_start 1;
+       vardec_assignable = true} }
   | VAR ID COLON ID ASSIGN exp
     { {A.vardec_name = S.symbol $2;
        vardec_escape = ref true;
        vardec_ty = Some (S.symbol $4, P.rhs_start 4);
        vardec_init = $6;
-       vardec_pos = P.rhs_start 1} }
+       vardec_pos = P.rhs_start 1;
+       vardec_assignable = true} }
   ;
 fundec:
     FUNCTION ID LPAREN tyfields RPAREN EQ exp
