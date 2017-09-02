@@ -2,6 +2,7 @@ type t = Arity_mismatch of int * int
        | Array_type_mismatch
        | Duplicate_type_declaration of string
        | Duplicate_function_declaration of string
+       | Illegal_assignment
        | Illegal_break
        | Illegal_cycle_in_type_declaration
        | Illegal_comparison of string * string

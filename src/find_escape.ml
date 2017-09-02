@@ -36,7 +36,7 @@ and traverse_exp env d = function
       List.iter (fun (name, exp, pos)  -> traverse_exp env d exp) fields
   | A.SeqExp (exps) ->
       List.iter (fun (exp, pos) -> traverse_exp env d exp) exps
-  | A.AssignExp (var, exp, pos) ->
+  | A.AssignExp (var, exp, legal, pos) ->
       traverse_var env d var;
       traverse_exp env d exp
   | A.IfExp (test, conseq, alt, pos) ->
@@ -47,9 +47,9 @@ and traverse_exp env d = function
       traverse_exp env d test;
       traverse_exp env d body
   | A.ForExp (var, escape, lo, hi, body, pos) ->
+      traverse_exp env d lo;
+      traverse_exp env d hi;
       let env' = enter var (d , escape) env in
-        traverse_exp env' d lo;
-        traverse_exp env' d hi;
         traverse_exp env' d body
   | A.BreakExp _ -> ()
   | A.LetExp (decs, body, pos) ->

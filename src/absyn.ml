@@ -20,7 +20,7 @@ and exp = VarExp of var
         | OpExp of exp (* left *) * oper * exp (* right *) * pos
         | RecordExp of (symbol * exp * pos) list (* fields *) * symbol (* typ *) * pos
         | SeqExp of (exp * pos) list
-        | AssignExp of var * exp * pos
+        | AssignExp of var * exp * bool ref * pos
         | IfExp of exp (* test *) * exp (* then *) * exp option (* else *) * pos
         | WhileExp of exp (* test *) * exp (* body *) * pos
         | ForExp of symbol (* var *) * bool ref (* escape *) *

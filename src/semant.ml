@@ -179,7 +179,8 @@ and trans_exp venv tenv break level exp =
             ([], T.UNIT)
             exps in
           {exp = Translate.seq_exp exps; ty}
-    | A.AssignExp (var, exp, pos) ->
+    | A.AssignExp (var, exp, legal, pos) ->
+        if not !legal then Error_msg.error pos Error_msg.Illegal_assignment;
         let {exp = var_exp; ty} = trans_var venv tenv break level var in
         let {exp = val_exp; _} as val_expty = trexp exp in
           check_expty ty val_expty pos;
@@ -248,7 +249,7 @@ and trans_exp venv tenv break level exp =
                 (A.IfExp (A.IntExp 1, body, None, pos), pos);
                 (A.IfExp (
                   A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.LtOp, A.VarExp (A.SimpleVar (limit_sym, pos)), pos),
-                  A.AssignExp (A.SimpleVar (var, pos), A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.PlusOp, A.IntExp 1, pos), pos),
+                  A.AssignExp (A.SimpleVar (var, pos), A.OpExp (A.VarExp (A.SimpleVar (var, pos)), A.PlusOp, A.IntExp 1, pos), ref true, pos),
                   Some (A.BreakExp pos),
                   pos
                   ), pos)

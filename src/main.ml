@@ -27,6 +27,7 @@ let _ =
     let absyn = Parser.program Lexer.token lexbuf in
       Parsing.clear_parser();
       Find_escape.find_escape absyn;
+      Find_illegal_assign.find_illegal_assign absyn;
       let frags = Semant.trans_prog absyn in
       let oc = open_out (Filename.remove_extension (Filename.basename filename) ^ ".s") in
         List.iter (emitproc oc) frags;

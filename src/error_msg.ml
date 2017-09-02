@@ -2,6 +2,7 @@ type t = Arity_mismatch of int * int
        | Array_type_mismatch
        | Duplicate_type_declaration of string
        | Duplicate_function_declaration of string
+       | Illegal_assignment
        | Illegal_break
        | Illegal_cycle_in_type_declaration
        | Illegal_comparison of string * string
@@ -26,6 +27,8 @@ let string_of_error_msg = function
       "duplicate type declaration " ^ s
   | Duplicate_function_declaration s ->
       "duplicate function declaration " ^ s
+  | Illegal_assignment ->
+      "illegal assignment"
   | Illegal_break ->
       "breaks must be nested inside a for or while statement"
   | Illegal_cycle_in_type_declaration ->

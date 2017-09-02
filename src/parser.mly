@@ -69,7 +69,7 @@ exp:
     lval
     { A.VarExp $1 }
   | lval ASSIGN exp
-    { A.AssignExp ($1, $3, P.rhs_start 2) }
+    { A.AssignExp ($1, $3, ref true, P.rhs_start 2) }
   | NIL
     { A.NilExp }
   | LPAREN expseq RPAREN
