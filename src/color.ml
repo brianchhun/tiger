@@ -23,7 +23,7 @@ let print_nodeset nodeset =
         dllist;
       print_newline ()
 
-let color ({Liveness.graph; tnode; gtemp; moves} as igraph) allocation registers =
+let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocation registers =
   (* Nodeset functions *)
   let create_nodeset () = ref None in
 
@@ -133,8 +133,7 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) allocation registers
   let adjacent cnode =
     Cset.elements
       (Cset.diff adj_list.(cnode.n)
-         (Cset.union (Cset.of_list (nodeset2list select_stack))
-            (Cset.of_list (nodeset2list coalesced_nodes)))) in
+         (Cset.of_list (nodeset2list select_stack))) in
 
   let decrement_degree cnode =
     let d = degree.(cnode.n) in
@@ -172,7 +171,8 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) allocation registers
       (List.rev (nodeset2list select_stack)) in
 
   let select_spill () =
-    let m = List.hd (nodeset2list spill_worklist) in
+    let cost cnode = spill_cost cnode.inode in
+    let m :: _ = List.sort (fun u v -> cost u - cost v) (nodeset2list spill_worklist) in
       move_node m simplify_worklist in
 
     build ();
@@ -185,8 +185,6 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) allocation registers
     done;
 
     assign_colors ();
-
-    if (nodeset2list spilled_nodes) <> [] then raise (Failure "spilled");
 
     let allocation' =
       List.fold_left

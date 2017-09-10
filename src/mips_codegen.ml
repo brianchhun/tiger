@@ -52,13 +52,13 @@ let codegen frame stm =
             A.assem = "jal " ^ Temp.string_of_label lab;
             src = munch_args 0 args;
             dst = calldefs;
-            jump =None})
+            jump = None})
     | T.MOVE (T.TEMP t, T.CALL (T.NAME lab, args)) ->
         emit (A.OPER {
             A.assem = "jal " ^ Temp.string_of_label lab;
             src = munch_args 0 args;
             dst = calldefs;
-            jump =None});
+            jump = None});
         emit (A.MOVE {
             A.assem = "move 'd0, 's0";
             src = Frame.rv;
@@ -96,7 +96,7 @@ let codegen frame stm =
               dst = [];
               jump = Some [truelab; falselab]})
             
-  and  munch_exp = function
+  and munch_exp = function
       T.MEM (T.BINOP (T.PLUS, e1, T.CONST i)) ->
         result (fun r -> emit (A.OPER {A.
             assem = "lw 'd0, " ^ string_of_int i ^ "('s0)";

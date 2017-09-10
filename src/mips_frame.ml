@@ -22,7 +22,6 @@ type register = string
 let registers = [
   "$fp";
   "$sp";
-  "$v0";
   "$ra";
   "$zero";
   "$gp";
@@ -99,7 +98,7 @@ let calleesaves =
   [s0; s1; s2; s3; s4; s5; s6; s7]
     
 let callersaves =
-  [t0; t1; t2; t3; t4; t5; t6; t7; t8; t9]
+  [t0; t1; t2; t3; t4; t5; t6; t7; t8; t9; v1]
 
 let temp_map =
   Temp.Table.(
@@ -190,7 +189,7 @@ let proc_entry_exit1 ({viewshift; _} as frame) body =
     List.split
       (List.map
          (fun t ->
-            let exp = exp (alloc_local frame true) (Tree.TEMP fp) in
+            let exp = exp (alloc_local frame false) (Tree.TEMP fp) in
               (Tree.MOVE (exp, Tree.TEMP t), Tree.MOVE (Tree.TEMP t, exp)))
          (calleesaves @ [ra])) in
     seq [seq save; viewshift; body; seq restore]

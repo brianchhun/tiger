@@ -145,5 +145,7 @@ let show out_channel {graph; gtemp; _} =
     (fun n ->
       say ((Frame.string_of_temp (gtemp n)) ^ ":\t" ^
            (String.join ", " (List.map (fun gn -> Frame.string_of_temp (gtemp gn)) (Igraph.adj n))) ^
+           ": " ^
+           (string_of_int (List.length (Igraph.adj n))) ^
            "\n"))
     (Igraph.nodes graph)
