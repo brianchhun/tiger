@@ -1,21 +1,21 @@
 type allocation = Frame.register Temp.Table.t
 
+type 'a dll_node = 'a Dllist.node_t option
+type 'a dll = 'a Dllist.node_t option ref
+
 (* Node rep *)
 type cnode =
   {inode: Igraph.node;
    n: int;
-   mutable setnode: cnode Dllist.node_t option;
-   mutable nodeset: nodeset}
-
-(* Node set rep *)
-and nodeset = cnode Dllist.node_t option ref
+   mutable setnode: cnode dll_node;
+   mutable dll: cnode dll}
 
 module Cset = Set.Make(struct type t = cnode let compare = compare end)
 
 module Rset = Set.Make(struct type t = Frame.register let compare = compare end)
 
-let print_nodeset nodeset =
-  match !nodeset with
+let print_dll dll =
+  match !dll with
     None -> print_endline "empty"
   | Some dllist ->
       Dllist.iter
@@ -25,40 +25,40 @@ let print_nodeset nodeset =
 
 let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocation registers =
   (* Nodeset functions *)
-  let create_nodeset () = ref None in
+  let create_dll () = ref None in
 
-  let nodeset2list nodeset = Option.map_default Dllist.to_list [] !nodeset in
+  let dll2list dll = Option.map_default Dllist.to_list [] !dll in
 
   let nextn = ref 0 in
-  let add_node inode nodeset =
-    let cnode = {inode; n=(!nextn); setnode=None; nodeset} in
+  let add_node inode dll =
+    let cnode = {inode; n=(!nextn); setnode=None; dll} in
       nextn := !nextn + 1;
       let dllnode = Dllist.create cnode in
         cnode.setnode <- Some dllnode;
         begin
-          match !nodeset with
+          match !dll with
             None ->
-              nodeset := Some dllnode
+              dll := Some dllnode
           | Some other ->
               Dllist.splice (Dllist.prev other) dllnode
         end;
         cnode in
 
-  let move_node cnode nodeset =
-    let oldnodeset = cnode.nodeset in
-    let head = Option.get !oldnodeset in
+  let move_node cnode dll =
+    let olddll = cnode.dll in
+    let head = Option.get !olddll in
     let setnode = Option.get cnode.setnode in
     let next = Dllist.drop setnode in
-      cnode.nodeset <- nodeset;
-      (* Remove from old nodeset *)
+      cnode.dll <- dll;
+      (* Remove from old dll *)
       if next == setnode then
-        oldnodeset := None
+        olddll := None
       else if setnode == head then
-        oldnodeset := Some next;
-      (* Append to new nodeset *)
-      match !nodeset with
+        olddll := Some next;
+      (* Append to new dll *)
+      match !dll with
         None ->
-          nodeset := Some setnode
+          dll := Some setnode
       | Some other ->
           Dllist.splice (Dllist.prev other) setnode in
 
@@ -67,15 +67,15 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
   let k = List.length registers in
 
   (* Node sets *)
-  let precolored = create_nodeset () in
-  let initial = create_nodeset () in
-  let simplify_worklist = create_nodeset () in
-  let freeze_worklist = create_nodeset () in
-  let spill_worklist = create_nodeset () in
-  let spilled_nodes = create_nodeset () in
-  let coalesced_nodes = create_nodeset () in
-  let colored_nodes = create_nodeset () in
-  let select_stack = create_nodeset () in
+  let precolored = create_dll () in
+  let initial = create_dll () in
+  let simplify_worklist = create_dll () in
+  let freeze_worklist = create_dll () in
+  let spill_worklist = create_dll () in
+  let spilled_nodes = create_dll () in
+  let coalesced_nodes = create_dll () in
+  let colored_nodes = create_dll () in
+  let select_stack = create_dll () in
 
   (* Other data structures *)
   let adj_set = Array.make_matrix n n false in
@@ -88,12 +88,12 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
       begin
         adj_set.(u.n).(v.n) <- true;
         adj_set.(v.n).(u.n) <- true;
-        if u.nodeset != precolored then
+        if u.dll != precolored then
           begin
             adj_list.(u.n) <- Cset.add v adj_list.(u.n);
             degree.(u.n) <- degree.(u.n) + 1
           end;
-        if v.nodeset != precolored then
+        if v.dll != precolored then
           begin
             adj_list.(v.n) <- Cset.add u adj_list.(v.n);
             degree.(v.n) <- degree.(v.n) + 1
@@ -128,12 +128,12 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
            move_node cnode spill_worklist
          else
            move_node cnode simplify_worklist)
-      (nodeset2list initial) in
+      (dll2list initial) in
 
   let adjacent cnode =
     Cset.elements
       (Cset.diff adj_list.(cnode.n)
-         (Cset.of_list (nodeset2list select_stack))) in
+         (Cset.of_list (dll2list select_stack))) in
 
   let decrement_degree cnode =
     let d = degree.(cnode.n) in
@@ -146,7 +146,7 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
       (fun cnode ->
          move_node cnode select_stack;
          List.iter decrement_degree (adjacent cnode))
-      (nodeset2list simplify_worklist) in
+      (dll2list simplify_worklist) in
 
   let assign_colors () =
     List.iter
@@ -154,8 +154,8 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
          let ok_colors' =
            Cset.fold
              (fun adj ok_colors ->
-                if adj.nodeset == colored_nodes ||
-                   adj.nodeset == precolored then
+                if adj.dll == colored_nodes ||
+                   adj.dll == precolored then
                   Rset.remove (Option.get color.(adj.n)) ok_colors
                 else
                   ok_colors)
@@ -168,20 +168,20 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
                move_node cnode colored_nodes;
                color.(cnode.n) <- Some (Rset.choose ok_colors')
              end)
-      (List.rev (nodeset2list select_stack)) in
+      (List.rev (dll2list select_stack)) in
 
   let select_spill () =
     let cost cnode = spill_cost cnode.inode in
-    let m :: _ = List.sort (fun u v -> cost u - cost v) (nodeset2list spill_worklist) in
+    let m :: _ = List.sort (fun u v -> cost u - cost v) (dll2list spill_worklist) in
       move_node m simplify_worklist in
 
     build ();
     make_worklist ();
 
-    while (nodeset2list simplify_worklist) <> [] ||
-          (nodeset2list spill_worklist) <> [] do
-      if (nodeset2list simplify_worklist) <> [] then simplify ()
-      else if (nodeset2list spill_worklist) <> [] then select_spill ()
+    while (dll2list simplify_worklist) <> [] ||
+          (dll2list spill_worklist) <> [] do
+      if (dll2list simplify_worklist) <> [] then simplify ()
+      else if (dll2list spill_worklist) <> [] then select_spill ()
     done;
 
     assign_colors ();
@@ -193,6 +193,6 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
            let t = gtemp cnode.inode in
              Temp.Table.add t c alloc)
         allocation
-        (nodeset2list colored_nodes) in
-    let spilled = List.map (fun cnode -> gtemp cnode.inode) (nodeset2list spilled_nodes) in
+        (dll2list colored_nodes) in
+    let spilled = List.map (fun cnode -> gtemp cnode.inode) (dll2list spilled_nodes) in
       (allocation', spilled)
