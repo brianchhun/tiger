@@ -64,7 +64,7 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
         cnode in
 
   (* Moveset functions *)
-  let add_move (u, v) dll =
+  let add_move u v dll =
     let move = {u; v; setnode={node=None; dll}} in
     let dllnode = Dllist.create move in
       move.setnode.node <- Some dllnode;
@@ -103,7 +103,7 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
   let adj_set = Array.make_matrix n n false in
   let adj_list = Array.make n Cset.empty in
   let degree = Array.make n 0 in
-  let move_list = Array.make n () in
+  let move_list = Array.make n [] in
   let alias = Array.make n None in
   let color = Array.make n None in
 
@@ -143,13 +143,30 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
              List.iter
                (fun adj -> add_edge u (Igraph.Table.find adj inodetab))
                (Igraph.adj inode))
-        (Igraph.nodes graph) in
+        (Igraph.nodes graph);
+      List.iter
+        (fun (u, v) ->
+           let u = Igraph.Table.find u inodetab in
+           let v = Igraph.Table.find v inodetab in
+           let m = add_move u v worklist_moves in
+             move_list.(u.n) <- move_list.(u.n) @ [m];
+             move_list.(v.n) <- move_list.(v.n) @ [m])
+        moves in
+
+  let node_moves n =
+    List.filter
+      (fun m -> m.setnode.dll == active_moves || m.setnode.dll == worklist_moves)
+      move_list.(n.n) in
+
+  let move_related n = node_moves n <> [] in
 
   let make_worklist () =
     List.iter
       (fun cnode ->
          if degree.(cnode.n) >= k then
            move_node cnode.setnode spill_worklist
+         else if move_related cnode then
+           move_node cnode.setnode freeze_worklist
          else
            move_node cnode.setnode simplify_worklist)
       (dll2list initial) in
