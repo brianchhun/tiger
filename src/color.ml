@@ -252,9 +252,13 @@ let color ({Liveness.graph; tnode; gtemp; moves} as igraph) spill_cost allocatio
       move_node u.setnode simplify_worklist in
 
   let combine u v =
+    move_node v.setnode coalesced_nodes;
+    alias.(v.n) <- Some u;
+    move_list.(u.n) <- move_list.(u.n) @ move_list.(v.n);
+    enable_moves [v];
+    List.iter (fun t -> add_edge t u; decrement_degree t) (adjacent v);
     (* XXX *)
 
-    ()
   in
 
   let coalesce () =
