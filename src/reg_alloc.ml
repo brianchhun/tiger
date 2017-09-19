@@ -67,6 +67,13 @@ let rewrite_program spilled frame instrs =
         let (temps, instrs') = loop instrs in (temps, instr :: instrs') in
     loop instrs
 
+let rec eliminate_moves allocation instrs =
+  List.filter
+    (function
+        Assem.MOVE {Assem.src; dst; _} when Temp.Table.find src allocation = Temp.Table.find dst allocation -> false
+      | _ -> true)
+    instrs
+
 let alloc instrs frame =
   let rec loop instrs rewrite_temps =
     let ({Flow.def; use; _} as flowgraph, flownodes) = Make_graph.instrs2graph instrs in
@@ -94,7 +101,8 @@ let alloc instrs frame =
              if List.mem t rewrite_temps then max_int else use + def) in
     let (allocation, spilled) = Color.color igraph spill_cost Frame.temp_map Frame.registers in
       if spilled = [] then
-        (instrs, allocation)
+        let instrs' = eliminate_moves allocation instrs in
+          (instrs', allocation)
       else
         let (temps, instrs') = rewrite_program spilled frame instrs in
           loop instrs' temps in
